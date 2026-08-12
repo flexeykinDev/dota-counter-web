@@ -4,13 +4,21 @@ An interactive, force-directed graph of Dota 2 hero counter-picks — every supp
 
 **Live demo:** https://flexeykindev.github.io/dota-counter-web/
 
+![The Counter Web — full graph overview](docs/screenshot.png)
+
 ## Features
 
-- **126 heroes** plotted as a force-directed graph (D3.js), with **251 counter relationships** between them
+- **127 heroes** plotted as a force-directed graph (D3.js), with **253 counter relationships** between them
 - Click any hero to trace who counters it (blue = support counter, red = core counter) and see why, plus a recommended "silver bullet" item
 - Live fuzzy search — just start typing anywhere on the page to filter and jump to a hero
 - Pan, zoom, and drag nodes to rearrange the graph
 - Fully static — no backend, no build step, works from a single `index.html`
+
+![Clicking a hero traces its counters](docs/screenshot-detail.png)
+
+## Data accuracy
+
+Counter relationships and item recommendations are verified against the current Dota 2 patch, **7.41e**. Since Dota gets reworked constantly (7.41 alone removed the old facet system in favor of one consolidated innate ability per hero), some of this will drift out of date over time — see [docs/ADDING_HEROES.md](docs/ADDING_HEROES.md) if you spot something stale and want to fix it.
 
 ## Project structure
 

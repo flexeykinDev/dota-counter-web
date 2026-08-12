@@ -13,13 +13,13 @@ Add an entry to `GRAPH.nodes`:
 
 ```js
 {
-  "id": "Muerta",                    // must exactly match the "id" used everywhere else (links, IMAGES key)
-  "role": "Midlane nuker",           // short label shown in the info panel
+  "id": "Largo",                     // must exactly match the "id" used everywhere else (links, IMAGES key)
+  "role": "Utility support",         // short label shown in the info panel
   "item": {
-    "name": "Black King Bar",        // the "silver bullet" item recommended against this hero
-    "desc": "BKB blocks her Dead Shot silence and lets you walk through the ult.",
+    "name": "Diffusal Blade / Disperser",  // the "silver bullet" item recommended against this hero
+    "desc": "Burns through his fragile mana pool so Verdant Drums and Croak of Genius run dry.",
     "icons": [
-      { "label": "Black King Bar", "url": "data:image/webp;base64,..." }
+      { "label": "Diffusal Blade", "url": "data:image/webp;base64,..." }
     ]
   }
 }
@@ -28,20 +28,34 @@ Add an entry to `GRAPH.nodes`:
 Then add a matching portrait to `IMAGES`:
 
 ```js
-"Muerta": "data:image/webp;base64,..."
+"Largo": "data:image/webp;base64,..."
 ```
 
-**Getting the base64 image data:** portraits and item icons are inlined as `data:image/webp;base64,...` URIs so the whole site works from a single set of static files with no image hosting. To generate one from a local image:
+(This is the actual entry used for Largo, added when he shipped in patch 7.40 — a real worked example, not a hypothetical.)
+
+**Getting the base64 image data:** portraits and item icons are inlined as `data:image/webp;base64,...` URIs so the whole site works from a single set of static files with no image hosting. Valve's official CDN has both, at predictable URLs (swap in the hero/item's internal name, lowercase with underscores):
+
+- Hero portrait: `https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/<hero>.png`
+- Item icon: `https://cdn.steamstatic.com/apps/dota2/images/dota_react/items/<item>.png`
+
+Fetch, resize, and re-encode as webp:
 
 ```bash
 python -c "
-import base64
-with open('muerta_portrait.webp', 'rb') as f:
-    print('data:image/webp;base64,' + base64.b64encode(f.read()).decode())
+from PIL import Image
+import io, base64, urllib.request
+
+data = urllib.request.urlopen('https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/largo.png').read()
+im = Image.open(io.BytesIO(data)).convert('RGB').resize((120, 68), Image.LANCZOS)  # portraits: 120x68 — item icons: 88x64
+buf = io.BytesIO()
+im.save(buf, format='WEBP', quality=80)
+print('data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode())
 "
 ```
 
-Keep portraits small (roughly the same file size as the existing ones, a few KB) — they're base64-encoded inline, so oversized images bloat `data.js` and slow down the initial page load. WebP at moderate quality (~70–80) keeps things compact.
+**Portraits must be exactly 120×68px and item icons exactly 88×64px** — the rendering code (`js/main.js`) hardcodes that aspect ratio to crop portraits into circles without distortion. Keep the resulting files small (a couple KB, matching the existing entries) — they're base64-encoded inline, so oversized images bloat `data.js` and slow down the initial page load.
+
+Before reusing an item icon, check whether it's already in the file (search `data.js` for the item's label) — several heroes share the same "silver bullet" item, and reusing an existing icon avoids adding a duplicate image blob.
 
 ## 2. Adding or editing a counter relationship
 
