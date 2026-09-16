@@ -1,20 +1,36 @@
+const app = document.getElementById("app");
+const svg = d3.select("#graph");
+const searchInput = document.getElementById("search");
+const searchBox = searchInput.closest(".search");
+const suggestEl = document.getElementById("suggest");
+const detailEl = document.getElementById("detail");
 
-const width = window.innerWidth;
-const height = window.innerHeight;
+let width = svg.node().clientWidth || window.innerWidth;
+let height = svg.node().clientHeight || window.innerHeight;
 
-const svg = d3.select("svg");
+const css = getComputedStyle(document.documentElement);
+const COLORS = {
+  support: css.getPropertyValue("--support").trim() || "#5aa9e6",
+  core: css.getPropertyValue("--core").trim() || "#ef5b52",
+};
+const isMobile = () => window.matchMedia("(max-width: 720px)").matches;
 
+const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+// ---------- arrow markers ----------
 const defs = svg.append("defs");
-const markerStates = { normal: 0.55, dim: 0.05, highlight: 1 };
-[["support","#4f8fc0"],["core","#d6635f"]].forEach(([type,color]) => {
+const markerStates = { normal: 0.45, outgoing: 0.7, dim: 0.04, highlight: 1 };
+Object.entries(COLORS).forEach(([type, color]) => {
   Object.entries(markerStates).forEach(([state, opacity]) => {
     defs.append("marker")
       .attr("id", `arrow-${type}-${state}`)
       .attr("viewBox", "0 0 10 10")
       .attr("refX", 9)
       .attr("refY", 5)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
+      .attr("markerWidth", state === "highlight" ? 5 : 6)
+      .attr("markerHeight", state === "highlight" ? 5 : 6)
       .attr("orient", "auto-start-reverse")
       .append("path")
       .attr("d", "M0,0 L10,5 L0,10 z")
@@ -28,18 +44,17 @@ const g = svg.append("g");
 const zoom = d3.zoom()
   .scaleExtent([0.15, 4])
   .on("zoom", (event) => g.attr("transform", event.transform));
-svg.call(zoom);
+svg.call(zoom).on("dblclick.zoom", null);
 
-// initial slight zoom-out since graph is dense
-const initialTransform = d3.zoomIdentity.translate(width/2, height/2).scale(0.55).translate(-width/2, -height/2);
-svg.call(zoom.transform, initialTransform);
-
+// ---------- data ----------
 GRAPH.nodes.forEach((n, i) => { n.__idx = i; });
 const nodesById = new Map(GRAPH.nodes.map(n => [n.id, n]));
+const linkId = (end) => end.id || end;
 
-// build adjacency for highlight logic (both directions)
-const outgoing = new Map(); // id -> [{target,type}]
-const incoming = new Map(); // id -> [{source,type}]
+// outgoing: links where this hero is the source, i.e. the heroes that counter it
+// incoming: links where this hero is the target, i.e. the heroes it counters
+const outgoing = new Map();
+const incoming = new Map();
 GRAPH.nodes.forEach(n => { outgoing.set(n.id, []); incoming.set(n.id, []); });
 GRAPH.links.forEach(l => {
   outgoing.get(l.source).push(l);
@@ -49,11 +64,12 @@ GRAPH.links.forEach(l => {
 const simulation = d3.forceSimulation(GRAPH.nodes)
   .force("link", d3.forceLink(GRAPH.links).id(d => d.id).distance(95).strength(0.35))
   .force("charge", d3.forceManyBody().strength(-220))
-  .force("center", d3.forceCenter(width/2, height/2))
+  .force("center", d3.forceCenter(width / 2, height / 2))
   .force("collide", d3.forceCollide().radius(28));
 
+// ---------- render ----------
 const linkSel = g.append("g")
-  .attr("class","links")
+  .attr("class", "links")
   .selectAll("path")
   .data(GRAPH.links)
   .join("path")
@@ -61,11 +77,11 @@ const linkSel = g.append("g")
   .attr("marker-end", d => `url(#arrow-${d.type}-normal)`);
 
 const nodeSel = g.append("g")
-  .attr("class","nodes")
+  .attr("class", "nodes")
   .selectAll("g")
   .data(GRAPH.nodes)
   .join("g")
-  .attr("class","node")
+  .attr("class", "node")
   .call(drag(simulation));
 
 function nodeRadius(d){
@@ -75,6 +91,10 @@ function nodeRadius(d){
 // nested group so hover/click scaling animates independently of the
 // outer group's per-tick position transform
 const nodeScale = nodeSel.append("g").attr("class", "node-scale");
+
+nodeScale.append("circle")
+  .attr("class", "pulse")
+  .attr("r", d => nodeRadius(d));
 
 // fallback circle, shown underneath the portrait (and if the image 404s)
 nodeScale.append("circle")
@@ -132,10 +152,10 @@ function portraitGeom(d){
 nodeScale.append("image")
   .attr("class", "portrait")
   .attr("href", d => IMAGES[d.id] || "")
-  .attr("x", d => portraitGeom(d).x)
-  .attr("y", d => portraitGeom(d).y)
-  .attr("width", d => portraitGeom(d).width)
-  .attr("height", d => portraitGeom(d).height)
+  .each(function(d){
+    const geom = portraitGeom(d);
+    d3.select(this).attr("x", geom.x).attr("y", geom.y).attr("width", geom.width).attr("height", geom.height);
+  })
   .attr("clip-path", d => `url(#clip-${d.__idx})`)
   .attr("preserveAspectRatio", "none")
   .on("error", function(){ d3.select(this).style("display", "none"); });
@@ -150,31 +170,16 @@ nodeScale.append("text")
   .attr("y", 3)
   .text(d => d.id);
 
-nodeSel.on("click", (event, d) => {
-  event.stopPropagation();
-  filterActive = false;
-  typeBuffer = "";
-  hideTypeahead();
-  searchInput.value = "";
-  selectNode(d.id);
-});
-
-svg.on("click", () => {
-  filterActive = false;
-  typeBuffer = "";
-  hideTypeahead();
-  searchInput.value = "";
-  clearSelection();
-});
-
-// Fixed target radii for hover/click, regardless of a node's base size —
+// Fixed target radii for hover/click, regardless of a node's base size,
 // so even small nodes grow to a clearly visible, consistent size.
 const HOVER_RADIUS = 26;
 const ACTIVE_RADIUS = 34;
 let hoveredId = null;
+let activeId = null;
+let filterActive = false; // true while a typed name is narrowing the graph
 
-// The node's currently rendered radius, accounting for hover/click scale-up —
-// used so link endpoints/arrowheads track the visual size, not just the base size.
+// The node's currently rendered radius, accounting for hover/click scale-up,
+// so link endpoints and arrowheads track the visual size.
 function effectiveRadius(d){
   if(d.id === activeId) return ACTIVE_RADIUS;
   if(d.id === hoveredId) return HOVER_RADIUS;
@@ -183,26 +188,34 @@ function effectiveRadius(d){
 
 function renderLinks(){
   linkSel.attr("d", d => {
-    // draw from the counter (target) to the countered hero (source),
-    // shortened so the arrowhead lands just outside the node's current
-    // rendered circle (which may be hover/click-enlarged)
+    // draw from the counter (target) to the countered hero (source), shortened
+    // so the arrowhead lands just outside the node's rendered circle
     const dx = d.source.x - d.target.x, dy = d.source.y - d.target.y;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const r = effectiveRadius(d.source) + 2;
-    const ex = d.source.x - (dx/dist) * r;
-    const ey = d.source.y - (dy/dist) * r;
+    const ex = d.source.x - (dx / dist) * r;
+    const ey = d.source.y - (dy / dist) * r;
     return `M${d.target.x},${d.target.y} L${ex},${ey}`;
   });
 }
 
 function updateNodeScale(){
-  nodeScale.style("transform", d => {
-    const base = nodeRadius(d);
-    const target = effectiveRadius(d);
-    return `scale(${target / base})`;
-  });
+  nodeScale.style("transform", d => `scale(${effectiveRadius(d) / nodeRadius(d)})`);
   renderLinks();
 }
+
+simulation.on("tick", () => {
+  renderLinks();
+  nodeSel.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+// ---------- interaction ----------
+nodeSel.on("click", (event, d) => {
+  event.stopPropagation();
+  resetSearch();
+  // on phones the bottom sheet can cover the tapped hero, so bring it into view
+  selectNode(d.id, { pan: isMobile() });
+});
 
 nodeSel.on("mouseenter", (event, d) => {
   hoveredId = d.id;
@@ -212,65 +225,74 @@ nodeSel.on("mouseenter", (event, d) => {
 nodeSel.on("mouseleave", (event, d) => {
   if(hoveredId === d.id) hoveredId = null;
   updateNodeScale();
-  if(!activeId && !filterActive) clearSelection(false);
+  if(!activeId && !filterActive) clearSelection();
 });
 
-simulation.on("tick", () => {
-  renderLinks();
-  nodeSel.attr("transform", d => `translate(${d.x},${d.y})`);
+svg.on("click", () => {
+  resetSearch();
+  clearSelection();
 });
-
-let activeId = null;
-let filterActive = false; // true whenever a name filter (typed or via search box) is narrowing the graph
-
-function neighborSet(id){
-  const s = new Set([id]);
-  outgoing.get(id).forEach(l => s.add(l.target.id || l.target));
-  incoming.get(id).forEach(l => s.add(l.source.id || l.source));
-  return s;
-}
 
 function previewNode(id){
-  // outgoing (source === id): this hero IS the one being countered -> these are
-  // "who counters me" edges, so they get the bright highlight treatment.
-  const outEdges = outgoing.get(id);
-  // incoming (target === id): this hero IS the counter -> these are "who I counter"
-  // edges. Keep the neighbor node lit, but don't light the edge itself.
-  const inEdges = incoming.get(id);
+  // "who counters me" edges get the bright animated treatment,
+  // "who I counter" edges stay visible but quieter
+  const outEdges = new Set(outgoing.get(id));
+  const inEdges = new Set(incoming.get(id));
 
   const neighborIds = new Set([id]);
-  outEdges.forEach(l => neighborIds.add(l.target.id || l.target));
-  inEdges.forEach(l => neighborIds.add(l.source.id || l.source));
+  outEdges.forEach(l => neighborIds.add(linkId(l.target)));
+  inEdges.forEach(l => neighborIds.add(linkId(l.source)));
 
-  nodeSel.classed("dim", d => !neighborIds.has(d.id));
-  nodeSel.classed("neighbor", d => neighborIds.has(d.id) && d.id !== id);
-  nodeSel.classed("active", d => d.id === id);
+  nodeSel
+    .classed("dim", d => !neighborIds.has(d.id))
+    .classed("neighbor", d => neighborIds.has(d.id) && d.id !== id)
+    .classed("active", d => d.id === id);
 
-  linkSel.classed("highlight", l => outEdges.includes(l));
-  linkSel.classed("dim", l => !outEdges.includes(l) && !inEdges.includes(l));
-  linkSel.attr("marker-end", l => {
-    const state = outEdges.includes(l) ? "highlight" : (inEdges.includes(l) ? "normal" : "dim");
-    return `url(#arrow-${l.type}-${state})`;
-  });
+  linkSel
+    .classed("highlight", l => outEdges.has(l))
+    .classed("outgoing", l => inEdges.has(l))
+    .classed("dim", l => !outEdges.has(l) && !inEdges.has(l))
+    .attr("marker-end", l => {
+      const state = outEdges.has(l) ? "highlight" : (inEdges.has(l) ? "outgoing" : "dim");
+      return `url(#arrow-${l.type}-${state})`;
+    });
+  // raise lit links so they draw over the dimmed ones
+  linkSel.filter(l => outEdges.has(l) || inEdges.has(l)).raise();
   updateNodeScale();
 }
 
-function selectNode(id){
+function selectNode(id, { pan = false } = {}){
   activeId = id;
   previewNode(id);
-  showInfo(id);
+  nodeSel.classed("selected", d => d.id === id);
+  nodeSel.filter(d => d.id === id).raise();
+  showDetail(id);
   showItemBadge(id);
+  setHash(id);
+  if(pan) panZoomTo(nodesById.get(id));
 }
 
-function clearSelection(hideInfo=true){
+// #Hero_Name in the URL links straight to a hero
+function setHash(id){
+  const hash = id ? "#" + encodeURIComponent(id.replace(/ /g, "_")) : "";
+  if(location.hash !== hash) history.replaceState(null, "", location.pathname + location.search + hash);
+}
+
+function heroFromHash(){
+  const raw = decodeURIComponent(location.hash.slice(1)).replace(/_/g, " ").toLowerCase();
+  return raw ? GRAPH.nodes.find(n => n.id.toLowerCase() === raw) : null;
+}
+
+function clearSelection(){
   activeId = null;
   filterActive = false;
-  nodeSel.classed("dim", false).classed("neighbor", false).classed("active", false);
-  linkSel.classed("dim", false).classed("highlight", false);
+  nodeSel.classed("dim", false).classed("neighbor", false).classed("active", false).classed("selected", false);
+  linkSel.classed("dim", false).classed("highlight", false).classed("outgoing", false);
   linkSel.attr("marker-end", d => `url(#arrow-${d.type}-normal)`);
   clearItemBadge();
   updateNodeScale();
-  if(hideInfo) document.getElementById("infobox").style.display = "none";
+  hideDetail();
+  setHash(null);
 }
 
 function clearItemBadge(){
@@ -279,199 +301,359 @@ function clearItemBadge(){
 
 function showItemBadge(id){
   clearItemBadge();
-  const sel = nodeSel.filter(d => d.id === id);
-  sel.each(function(d){
-    const r = nodeRadius(d);
-    const grp = d3.select(this).append("g").attr("class","item-badge");
+  nodeSel.filter(d => d.id === id).each(function(d){
+    const r = ACTIVE_RADIUS;
+    const grp = d3.select(this).append("g").attr("class", "item-badge");
     const icons = d.item.icons;
+    const by = r + 14;
 
-    if(icons.length){
-      const size = 22, gap = 5;
-      const totalW = icons.length * size + (icons.length - 1) * gap;
-      const startX = -totalW / 2;
-      const by = r + 12;
+    grp.append("text")
+      .attr("y", icons.length ? by - 5 : by + 4)
+      .attr("text-anchor", "middle")
+      .attr("class", "item-label")
+      .text(d.item.name);
 
-      grp.append("text")
-        .attr("y", by - 6)
-        .attr("text-anchor", "middle")
-        .attr("class", "item-label")
-        .text(d.item.name);
-
-      icons.forEach((icon, i) => {
-        const bx = startX + i * (size + gap) + size / 2;
-        const badge = grp.append("g").attr("transform", `translate(${bx},${by})`);
-        badge.append("rect")
-          .attr("x", -size/2).attr("y", 0)
-          .attr("width", size).attr("height", size)
-          .attr("rx", 4)
-          .attr("class", "item-frame");
-        badge.append("image")
-          .attr("href", icon.url)
-          .attr("x", -size/2 + 1.5).attr("y", 1.5)
-          .attr("width", size - 3).attr("height", size - 3)
-          .attr("preserveAspectRatio", "xMidYMid slice")
-          .on("error", function(){ d3.select(this.parentNode).select("rect").attr("class","item-frame item-frame-missing"); d3.select(this).style("display","none"); });
-        badge.append("title").text(icon.label);
-      });
-    } else {
-      grp.append("text")
-        .attr("y", r + 16)
-        .attr("text-anchor", "middle")
-        .attr("class", "item-label")
-        .text(d.item.name);
-    }
+    const size = 22, gap = 5;
+    const totalW = icons.length * size + (icons.length - 1) * gap;
+    icons.forEach((icon, i) => {
+      const bx = -totalW / 2 + i * (size + gap) + size / 2;
+      const badge = grp.append("g").attr("transform", `translate(${bx},${by})`);
+      badge.append("rect")
+        .attr("x", -size / 2).attr("y", 0)
+        .attr("width", size).attr("height", size)
+        .attr("rx", 4)
+        .attr("class", "item-frame");
+      badge.append("image")
+        .attr("href", icon.url)
+        .attr("x", -size / 2 + 1.5).attr("y", 1.5)
+        .attr("width", size - 3).attr("height", size - 3)
+        .attr("preserveAspectRatio", "xMidYMid slice")
+        .on("error", function(){
+          d3.select(this.parentNode).select("rect").attr("class", "item-frame item-frame-missing");
+          d3.select(this).style("display", "none");
+        });
+      badge.append("title").text(icon.label);
+    });
   });
 }
 
-function showInfo(id){
-  const node = nodesById.get(id);
-  const out = outgoing.get(id);
-  const supportLink = out.find(l => l.type === "support");
-  const coreLink = out.find(l => l.type === "core");
-  const beatenBy = incoming.get(id);
+// ---------- detail panel ----------
+function avatar(id, cls = ""){
+  const src = IMAGES[id];
+  return src ? `<img class="avatar ${cls}" src="${src}" alt="">` : `<span class="avatar ${cls}"></span>`;
+}
 
-  let html = `<h2>${node.id}</h2>`;
-  html += `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">${node.role}</div>`;
-  if(supportLink){
-    html += `<div class="row"><b>Support counter:</b> ${supportLink.target.id||supportLink.target}<div class="desc">${supportLink.desc}</div></div>`;
+function showDetail(id){
+  const node = nodesById.get(id);
+  const counteredBy = outgoing.get(id);
+  const counters = incoming.get(id);
+  const order = { support: 0, core: 1 };
+
+  let html = `<button class="detail-close" data-action="close" aria-label="Close">×</button>
+    <header class="detail-head">
+      ${avatar(id, "lg")}
+      <div><span class="chip">${escapeHtml(node.role)}</span><h2>${escapeHtml(node.id)}</h2></div>
+    </header>`;
+
+  html += `<div class="section-title">Countered by <span class="n">${counteredBy.length}</span></div>`;
+  if(counteredBy.length){
+    [...counteredBy].sort((a, b) => order[a.type] - order[b.type]).forEach(l => {
+      const counter = linkId(l.target);
+      html += `<button class="card ${l.type}" data-hero="${escapeHtml(counter)}">
+        ${avatar(counter)}
+        <div class="card-body">
+          <div class="card-kicker">${l.type === "support" ? "Support counter" : "Core counter"}</div>
+          <div class="card-name">${escapeHtml(counter)}</div>
+          <p class="card-desc">${escapeHtml(l.desc)}</p>
+        </div>
+      </button>`;
+    });
+  } else {
+    html += `<p class="muted">No counters listed yet.</p>`;
   }
-  if(coreLink){
-    html += `<div class="row core"><b>Core counter:</b> ${coreLink.target.id||coreLink.target}<div class="desc">${coreLink.desc}</div></div>`;
-  }
+
   if(node.item){
-    const iconsHtml = node.item.icons.map(ic =>
-      `<img src="${ic.url}" alt="${ic.label}" title="${ic.label}" class="item-thumb">`
+    const icons = node.item.icons.map(ic =>
+      `<img class="item-icon" src="${ic.url}" alt="${escapeHtml(ic.label)}" title="${escapeHtml(ic.label)}">`
     ).join("");
-    html += `<div class="row item"><b>Silver bullet:</b> ${node.item.name}`;
-    if(iconsHtml) html += `<div class="item-thumbs">${iconsHtml}</div>`;
-    html += `<div class="desc">${node.item.desc}</div></div>`;
+    html += `<div class="section-title">Silver bullet</div>
+      <div class="card item">
+        ${icons ? `<div class="item-icons">${icons}</div>` : ""}
+        <div class="card-body">
+          <div class="card-name">${escapeHtml(node.item.name)}</div>
+          <p class="card-desc">${escapeHtml(node.item.desc)}</p>
+        </div>
+      </div>`;
   }
-  if(beatenBy.length){
-    const names = beatenBy.map(l => (l.source.id||l.source)).join(", ");
-    html += `<div class="row" style="margin-top:10px;"><b style="color:var(--gold);">Counters:</b> <span style="color:var(--text);">${names}</span></div>`;
+
+  html += `<div class="section-title">Counters <span class="n">${counters.length}</span></div>`;
+  if(counters.length){
+    html += `<div class="chips">` + counters.map(l => {
+      const hero = linkId(l.source);
+      return `<button class="hero-chip ${l.type}" data-hero="${escapeHtml(hero)}" title="${l.type === "support" ? "Support" : "Core"} counter to ${escapeHtml(hero)}">${avatar(hero, "sm")}${escapeHtml(hero)}<i></i></button>`;
+    }).join("") + `</div>`;
+  } else {
+    html += `<p class="muted">Not listed as a counter to anyone.</p>`;
   }
-  const box = document.getElementById("infobox");
-  box.innerHTML = html;
-  box.style.display = "block";
+
+  detailEl.innerHTML = html;
+  detailEl.hidden = false;
+  detailEl.scrollTop = 0;
+  app.classList.add("has-detail");
+}
+
+function hideDetail(){
+  detailEl.hidden = true;
+  app.classList.remove("has-detail");
+}
+
+detailEl.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-hero], [data-action]");
+  if(!target) return;
+  if(target.dataset.action === "close"){
+    clearSelection();
+    return;
+  }
+  resetSearch();
+  selectNode(target.dataset.hero, { pan: true });
+});
+
+// ---------- camera ----------
+// Visible graph area, minus the UI that sits on top of it.
+function viewport(){
+  if(isMobile()){
+    const bottom = activeId ? height * 0.58 : 70;
+    return { x: 0, y: 120, w: width, h: Math.max(160, height - 120 - bottom) };
+  }
+  const right = activeId ? 340 + 36 : 0;
+  return { x: 0, y: 70, w: width - right, h: height - 70 - 70 };
 }
 
 function panZoomTo(node){
-  svg.transition().duration(400).call(
+  const v = viewport();
+  const scale = Math.max(d3.zoomTransform(svg.node()).k, 1.1);
+  svg.transition().duration(450).call(
     zoom.transform,
-    d3.zoomIdentity.translate(width/2, height/2).scale(1.1).translate(-node.x, -node.y)
+    d3.zoomIdentity.translate(v.x + v.w / 2, v.y + v.h / 2).scale(scale).translate(-node.x, -node.y)
   );
 }
 
-function showTypeahead(prefix, count, singleName){
-  const el = document.getElementById("typeahead");
-  if(!prefix){ el.style.display = "none"; return; }
-  el.style.display = "block";
-  el.classList.toggle("no-match", count === 0);
-  let countHTML;
-  if(count === 0) countHTML = "no match";
-  else if(count === 1) countHTML = singleName;
-  else countHTML = count + " matches";
-  el.innerHTML = `<b>${prefix}</b><span class="count">${countHTML}</span>`;
+function fitTransform(){
+  const v = viewport();
+  const [x0, x1] = d3.extent(GRAPH.nodes, d => d.x);
+  const [y0, y1] = d3.extent(GRAPH.nodes, d => d.y);
+  const pad = 60;
+  const k = Math.max(0.15, Math.min(1.2, Math.min(v.w / (x1 - x0 + pad * 2), v.h / (y1 - y0 + pad * 2))));
+  return d3.zoomIdentity
+    .translate(v.x + v.w / 2, v.y + v.h / 2)
+    .scale(k)
+    .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
 }
 
-function hideTypeahead(){
-  document.getElementById("typeahead").style.display = "none";
+function fitView(duration = 500){
+  const t = fitTransform();
+  if(duration) svg.transition().duration(duration).call(zoom.transform, t);
+  else svg.call(zoom.transform, t);
 }
 
-// Highlights every hero whose name starts with `prefix`, narrowing as more
-// letters are typed. Once exactly one hero matches, fully select it.
-function filterByPrefix(prefix){
-  const q = prefix.trim().toLowerCase();
-  if(!q){ clearSelection(); hideTypeahead(); return; }
+// pre-settle the layout so the first frame can be framed properly;
+// the simulation keeps running afterwards for the final settling
+simulation.stop();
+for(let i = 0; i < 140; i++) simulation.tick();
+nodeSel.attr("transform", d => `translate(${d.x},${d.y})`);
+renderLinks();
+fitView(0);
+simulation.restart();
 
-  filterActive = true;
-  const matches = GRAPH.nodes.filter(n => n.id.toLowerCase().startsWith(q));
-  showTypeahead(prefix, matches.length, matches.length === 1 ? matches[0].id : null);
-
-  if(matches.length === 0){
-    activeId = null;
-    nodeSel.classed("dim", true).classed("neighbor", false).classed("active", false);
-    linkSel.classed("dim", true).classed("highlight", false);
-    linkSel.attr("marker-end", d => `url(#arrow-${d.type}-dim)`);
-    document.getElementById("infobox").style.display = "none";
-    clearItemBadge();
-    updateNodeScale();
-    return;
+function openFromHash(){
+  const node = heroFromHash();
+  if(node && node.id !== activeId){
+    resetSearch();
+    selectNode(node.id, { pan: true });
   }
-
-  if(matches.length === 1){
-    selectNode(matches[0].id);
-    panZoomTo(matches[0]);
-    return;
-  }
-
-  // several heroes still match this prefix: highlight all of them, dim
-  // everything else, but don't light edges or show the info panel yet
-  activeId = null;
-  const ids = new Set(matches.map(m => m.id));
-  nodeSel.classed("dim", d => !ids.has(d.id));
-  nodeSel.classed("neighbor", false);
-  nodeSel.classed("active", d => ids.has(d.id));
-  linkSel.classed("dim", true).classed("highlight", false);
-  linkSel.attr("marker-end", d => `url(#arrow-${d.type}-dim)`);
-  document.getElementById("infobox").style.display = "none";
-  clearItemBadge();
-  updateNodeScale();
 }
 
 document.getElementById("reset").addEventListener("click", () => {
+  resetSearch();
   clearSelection();
-  hideTypeahead();
-  typeBuffer = "";
-  svg.transition().duration(500).call(zoom.transform, initialTransform);
-  document.getElementById("search").value = "";
+  fitView();
+});
+document.getElementById("zoom-in").addEventListener("click", () => {
+  svg.transition().duration(250).call(zoom.scaleBy, 1.35);
+});
+document.getElementById("zoom-out").addEventListener("click", () => {
+  svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.35);
 });
 
-const searchInput = document.getElementById("search");
-searchInput.addEventListener("input", () => {
-  typeBuffer = searchInput.value;
-  filterByPrefix(typeBuffer);
+window.addEventListener("resize", () => {
+  width = svg.node().clientWidth || window.innerWidth;
+  height = svg.node().clientHeight || window.innerHeight;
+  simulation.force("center", d3.forceCenter(width / 2, height / 2));
 });
 
-// Type-anywhere quick-find: start typing a hero's name without needing to
-// click the search box first. Narrows live; Escape clears it.
-let typeBuffer = "";
-let typeaheadTimer = null;
+// ---------- search ----------
+let suggestions = [];
+let suggestIndex = 0;
 
-function resetTypeBuffer(){
-  typeBuffer = "";
-  clearTimeout(typeaheadTimer);
-  hideTypeahead();
+// Prefix of the full name first, then prefix of any word ("spirit"), then anywhere.
+function findHeroes(query){
+  const q = query.trim().toLowerCase();
+  if(!q) return [];
+  const scored = [];
+  for(const n of GRAPH.nodes){
+    const name = n.id.toLowerCase();
+    let score = -1;
+    if(name.startsWith(q)) score = 0;
+    else if(name.split(/[\s-]+/).some(w => w.startsWith(q))) score = 1;
+    else if(name.includes(q)) score = 2;
+    if(score >= 0) scored.push({ node: n, score });
+  }
+  return scored.sort((a, b) => a.score - b.score || a.node.id.localeCompare(b.node.id)).map(s => s.node);
 }
 
-window.addEventListener("keydown", (event) => {
-  const tag = (event.target.tagName || "").toLowerCase();
-  if(tag === "input" || tag === "textarea") return; // the search box handles its own typing
+function highlightMatch(name, query){
+  const i = name.toLowerCase().indexOf(query.trim().toLowerCase());
+  if(i < 0 || !query.trim()) return escapeHtml(name);
+  const end = i + query.trim().length;
+  return escapeHtml(name.slice(0, i)) + "<mark>" + escapeHtml(name.slice(i, end)) + "</mark>" + escapeHtml(name.slice(end));
+}
 
-  if(event.key === "Escape"){
-    resetTypeBuffer();
-    clearSelection();
-    searchInput.value = "";
+function renderSuggestions(query){
+  const q = query.trim();
+  searchBox.classList.toggle("no-match", !!q && suggestions.length === 0);
+  if(!q){ closeSuggestions(); return; }
+
+  if(!suggestions.length){
+    suggestEl.innerHTML = `<li class="s-empty">No hero matches "${escapeHtml(q)}"</li>`;
+  } else {
+    suggestEl.innerHTML = suggestions.slice(0, 8).map((n, i) => `
+      <li role="option" id="opt-${i}" data-hero="${escapeHtml(n.id)}" aria-selected="${i === suggestIndex}">
+        ${avatar(n.id)}
+        <span class="s-name">${highlightMatch(n.id, q)}</span>
+        <span class="s-role">${escapeHtml(n.role)}</span>
+      </li>`).join("");
+  }
+  suggestEl.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
+  searchInput.setAttribute("aria-activedescendant", suggestions.length ? `opt-${suggestIndex}` : "");
+}
+
+function closeSuggestions(){
+  suggestEl.hidden = true;
+  searchInput.setAttribute("aria-expanded", "false");
+  searchInput.removeAttribute("aria-activedescendant");
+}
+
+function resetSearch(){
+  searchInput.value = "";
+  suggestions = [];
+  searchBox.classList.remove("no-match");
+  closeSuggestions();
+}
+
+// Lights every matching hero, narrowing as more letters are typed.
+// Once exactly one hero matches, select it.
+function filterGraph(query){
+  suggestions = findHeroes(query);
+  suggestIndex = 0;
+  renderSuggestions(query);
+
+  if(!query.trim()){ clearSelection(); return; }
+
+  if(suggestions.length === 1){
+    closeSuggestions();
+    selectNode(suggestions[0].id, { pan: true });
     return;
   }
 
-  if(event.key === "Backspace"){
-    typeBuffer = typeBuffer.slice(0, -1);
-  } else if(event.key.length === 1 && /[a-zA-Z' -]/.test(event.key)){
-    typeBuffer += event.key;
-  } else {
-    return; // ignore arrows, tab, etc.
+  activeId = null;
+  filterActive = true;
+  const ids = new Set(suggestions.map(m => m.id));
+  nodeSel
+    .classed("dim", d => !ids.has(d.id))
+    .classed("neighbor", false)
+    .classed("selected", false)
+    .classed("active", d => ids.has(d.id));
+  linkSel.classed("dim", true).classed("highlight", false).classed("outgoing", false);
+  linkSel.attr("marker-end", d => `url(#arrow-${d.type}-dim)`);
+  clearItemBadge();
+  hideDetail();
+  setHash(null);
+  updateNodeScale();
+}
+
+function pickSuggestion(index){
+  const node = suggestions[index];
+  if(!node) return;
+  searchInput.value = node.id;
+  closeSuggestions();
+  searchInput.blur();
+  selectNode(node.id, { pan: true });
+}
+
+searchInput.addEventListener("input", () => filterGraph(searchInput.value));
+searchInput.addEventListener("focus", () => { if(searchInput.value.trim() && !activeId) renderSuggestions(searchInput.value); });
+searchInput.addEventListener("blur", () => setTimeout(closeSuggestions, 120));
+
+searchInput.addEventListener("keydown", (event) => {
+  const visible = Math.min(suggestions.length, 8);
+  if(event.key === "ArrowDown" || event.key === "ArrowUp"){
+    if(!visible) return;
+    event.preventDefault();
+    suggestIndex = (suggestIndex + (event.key === "ArrowDown" ? 1 : -1) + visible) % visible;
+    renderSuggestions(searchInput.value);
+  } else if(event.key === "Enter"){
+    event.preventDefault();
+    pickSuggestion(suggestIndex);
+  } else if(event.key === "Escape"){
+    event.preventDefault();
+    resetSearch();
+    clearSelection();
+    searchInput.blur();
   }
-
-  clearTimeout(typeaheadTimer);
-  typeaheadTimer = setTimeout(resetTypeBuffer, 2500);
-
-  searchInput.value = typeBuffer;
-  filterByPrefix(typeBuffer);
 });
 
-document.getElementById("count").textContent = GRAPH.nodes.length + " heroes · " + GRAPH.links.length + " counter relationships";
-document.getElementById("sub").textContent = GRAPH.nodes.length + " heroes — every support counter, core counter & the pick they beat";
+// mousedown so the pick lands before the input's blur closes the list
+suggestEl.addEventListener("mousedown", (event) => {
+  const li = event.target.closest("li[data-hero]");
+  if(!li) return;
+  event.preventDefault();
+  pickSuggestion(suggestions.findIndex(n => n.id === li.dataset.hero));
+});
+
+// Type anywhere: the first letter moves focus into the search box and starts a new query.
+window.addEventListener("keydown", (event) => {
+  if(event.target === searchInput) return;
+  if(event.ctrlKey || event.metaKey || event.altKey) return;
+  const tag = (event.target.tagName || "").toLowerCase();
+  if(tag === "input" || tag === "textarea") return;
+
+  if(event.key === "Escape"){
+    resetSearch();
+    clearSelection();
+    return;
+  }
+  if(event.key === "/"){
+    event.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+    return;
+  }
+  if(event.key.length === 1 && /[a-zA-Z']/.test(event.key)){
+    // moving focus during keydown lets the browser type the key into the input itself
+    searchInput.value = "";
+    searchInput.focus();
+  }
+});
+
+// ---------- labels ----------
+const heroCount = GRAPH.nodes.length;
+const linkCount = GRAPH.links.length;
+document.getElementById("count").textContent = `${heroCount} heroes · ${linkCount} counters`;
+document.getElementById("sub").textContent = `${heroCount} heroes · ${linkCount} counter-picks · silver bullet items`;
+
+openFromHash();
+window.addEventListener("hashchange", openFromHash);
 
 function drag(sim){
   function dragstarted(event, d){

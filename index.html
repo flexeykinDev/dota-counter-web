@@ -2,35 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Counter Web — Dota 2 Hero Matchup Graph</title>
 <meta name="description" content="Interactive force-directed graph of every Dota 2 hero counter-pick and the item to shut them down.">
+<meta name="theme-color" content="#0a0b0f">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0b0f'/%3E%3Cg stroke='%23f0a04b' stroke-width='2'%3E%3Cpath d='M9 10L22 9M9 10L16 23M22 9L16 23' stroke-opacity='.7'/%3E%3C/g%3E%3Ccircle cx='9' cy='10' r='3.4' fill='%235aa9e6'/%3E%3Ccircle cx='22' cy='9' r='3.4' fill='%23ef5b52'/%3E%3Ccircle cx='16' cy='23' r='4.2' fill='%23f0a04b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="app">
-  <svg></svg>
+  <svg id="graph" aria-label="Hero counter graph"></svg>
+  <div class="vignette" aria-hidden="true"></div>
 
-  <div class="masthead">
-    <h1>The <span>Counter</span> Web</h1>
-    <div class="sub" id="sub">127 heroes — every support counter, core counter &amp; the pick they beat</div>
-    <a class="branding" href="https://github.com/flexeykinDev" target="_blank" rel="noopener noreferrer">flexeykinDEV</a>
-  </div>
-
-  <div class="panel">
-    <input id="search" type="text" placeholder="Find a hero...">
-    <div class="legend">
-      <div class="support"><span class="dot"></span>Support counter</div>
-      <div class="core"><span class="dot"></span>Core counter</div>
+  <header class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M9 10L22 9M9 10L16 23M22 9L16 23" stroke="currentColor" stroke-width="1.6" stroke-opacity=".55"/>
+      <circle cx="9" cy="10" r="3.4" fill="var(--support)"/>
+      <circle cx="22" cy="9" r="3.4" fill="var(--core)"/>
+      <circle cx="16" cy="23" r="4.2" fill="var(--gold)"/>
+    </svg>
+    <div>
+      <h1>The <span>Counter</span> Web</h1>
+      <div class="brand-sub" id="sub">Dota 2 hero counter-picks</div>
     </div>
-    <div class="hint">Click a hero to trace who counters it and who it counters. Just start typing a name anywhere on the page to filter live — Esc clears it. Drag to reposition, scroll to zoom.</div>
-    <button id="reset">Reset view</button>
+  </header>
+
+  <div class="search" role="search">
+    <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input id="search" type="text" placeholder="Find a hero..." autocomplete="off" spellcheck="false"
+           role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+    <kbd class="search-kbd" id="search-kbd">type anywhere</kbd>
+    <ul id="suggest" class="suggest" role="listbox" hidden></ul>
   </div>
 
-  <div id="infobox"></div>
-  <div id="typeahead"></div>
-  <div id="count"></div>
+  <aside id="detail" class="detail" aria-live="polite" hidden></aside>
+
+  <div class="dock">
+    <div class="legend">
+      <span class="legend-item support"><i></i>Support counter</span>
+      <span class="legend-item core"><i></i>Core counter</span>
+    </div>
+    <div class="controls">
+      <button id="zoom-in" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg></button>
+      <button id="zoom-out" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 20 20"><path d="M4 10h12"/></svg></button>
+      <button id="reset" title="Reset view" aria-label="Reset view"><svg viewBox="0 0 20 20"><path d="M4 8V4h4M16 12v4h-4M4 4l5 5M16 16l-5-5"/></svg></button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span id="count"></span>
+    <span class="footer-sep">/</span>
+    <span class="footer-hint">Click a hero · <kbd>Esc</kbd> clears · scroll to zoom</span>
+    <span class="footer-sep">/</span>
+    <a class="branding" href="https://github.com/flexeykinDev/dota-counter-web" target="_blank" rel="noopener noreferrer">flexeykinDEV</a>
+  </div>
 </div>
 
 <script src="js/data.js"></script>
