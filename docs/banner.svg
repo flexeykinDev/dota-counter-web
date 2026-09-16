@@ -49,7 +49,7 @@
     <text x="70" y="92" fill="#8d9099" font-size="19" letter-spacing="6">DOTA 2 COUNTER-PICK GRAPH</text>
     <text x="66" y="168" fill="#f4f5f7" font-size="66" font-weight="700" letter-spacing="2">THE COUNTER WEB</text>
     <text x="70" y="214" fill="url(#accent)" font-size="25" font-weight="600">Who beats who, and the item that shuts them down</text>
-    <text x="70" y="260" fill="#6f727b" font-size="18">by flexeykinDEV  /  127 heroes  /  254 counters  /  patch 7.41e</text>
+    <text x="70" y="260" fill="#6f727b" font-size="18">by flexeykinDEV  /  127 heroes  /  732 counters  /  patch 7.41</text>
   </g>
 
   <!-- mini counter graph: arrows point from the counter to the hero it beats -->

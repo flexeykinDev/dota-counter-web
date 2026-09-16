@@ -30,18 +30,34 @@
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
     <text x="26" y="40" class="title">HEROES</text>
     <text x="26" y="80" class="value">127</text>
-    <text x="26" y="110" class="line">Every hero in patch 7.41e,</text>
+    <text x="26" y="110" class="line">Every hero in patch 7.41,</text>
     <text x="26" y="132" class="line">Largo included</text>
   </g>
   <g transform="translate(416 104)">
     <rect width="368" height="150" rx="14" class="card"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
     <text x="26" y="40" class="title">COUNTER-PICKS</text>
-    <text x="26" y="80" class="value">254</text>
-    <text x="26" y="110" class="line">A support and a core counter</text>
-    <text x="26" y="132" class="line">per hero, each with a reason</text>
+    <text x="26" y="80" class="value">732</text>
+    <text x="26" y="110" class="line">Up to 3 support and 3 core</text>
+    <text x="26" y="132" class="line">counters per hero, with reasons</text>
   </g>
   <g transform="translate(806 104)">
+    <rect width="368" height="150" rx="14" class="hot"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NEW</text>
+    <text x="26" y="80" class="value">2M+ games</text>
+    <text x="26" y="110" class="line">Divine and Immortal matches</text>
+    <text x="26" y="132" class="line">pick the counters (STRATZ)</text>
+  </g>
+  <g transform="translate(26 276)">
+    <rect width="368" height="150" rx="14" class="hot"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NEW</text>
+    <text x="26" y="80" class="value">Real numbers</text>
+    <text x="26" y="110" class="line">Edge, win rate, game count</text>
+    <text x="26" y="132" class="line">and pro record on every card</text>
+  </g>
+  <g transform="translate(416 276)">
     <rect width="368" height="150" rx="14" class="card"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
     <text x="26" y="40" class="title">SILVER BULLETS</text>
@@ -49,7 +65,7 @@
     <text x="26" y="110" class="line">The item that shuts each</text>
     <text x="26" y="132" class="line">hero down, with icons</text>
   </g>
-  <g transform="translate(26 276)">
+  <g transform="translate(806 276)">
     <rect width="368" height="150" rx="14" class="card"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
     <text x="26" y="40" class="title">SEARCH</text>
@@ -57,44 +73,28 @@
     <text x="26" y="110" class="line">Matches any word, so "void"</text>
     <text x="26" y="132" class="line">finds Faceless Void too</text>
   </g>
-  <g transform="translate(416 276)">
-    <rect width="368" height="150" rx="14" class="hot"/>
+  <g transform="translate(26 448)">
+    <rect width="368" height="150" rx="14" class="card"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
-    <text x="26" y="40" class="title">NEW</text>
-    <text x="26" y="80" class="value">Hero panel</text>
-    <text x="26" y="110" class="line">Counter cards, item card and</text>
-    <text x="26" y="132" class="line">clickable hero chips</text>
-  </g>
-  <g transform="translate(806 276)">
-    <rect width="368" height="150" rx="14" class="hot"/>
-    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
-    <text x="26" y="40" class="title">NEW</text>
-    <text x="26" y="80" class="value">Share links</text>
+    <text x="26" y="40" class="title">SHARE</text>
+    <text x="26" y="80" class="value">Hero links</text>
     <text x="26" y="110" class="line">Every hero has its own URL,</text>
     <text x="26" y="132" class="line">like /#Pudge</text>
   </g>
-  <g transform="translate(26 448)">
+  <g transform="translate(416 448)">
     <rect width="368" height="150" rx="14" class="hot"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
-    <text x="26" y="40" class="title">NEW</text>
-    <text x="26" y="80" class="value">Data CLI</text>
-    <text x="26" y="110" class="line">Checks every link, portrait</text>
-    <text x="26" y="132" class="line">and item icon in data.js</text>
-  </g>
-  <g transform="translate(416 448)">
-    <rect width="368" height="150" rx="14" class="card"/>
-    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
-    <text x="26" y="40" class="title">PHONES</text>
-    <text x="26" y="80" class="value">Bottom sheet</text>
-    <text x="26" y="110" class="line">Tap a hero and the panel</text>
-    <text x="26" y="132" class="line">slides up from below</text>
+    <text x="26" y="40" class="title">DATA CLI</text>
+    <text x="26" y="80" class="value">counterweb</text>
+    <text x="26" y="110" class="line">Fetch, plan, check and apply</text>
+    <text x="26" y="132" class="line">counters from the terminal</text>
   </g>
   <g transform="translate(806 448)">
     <rect width="368" height="150" rx="14" class="card"/>
     <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
     <text x="26" y="40" class="title">NO BUILD</text>
     <text x="26" y="80" class="value">Static site</text>
-    <text x="26" y="110" class="line">HTML, CSS and D3. No backend,</text>
-    <text x="26" y="132" class="line">no bundler, no install</text>
+    <text x="26" y="110" class="line">HTML, CSS and D3. Works on</text>
+    <text x="26" y="132" class="line">phones, no backend</text>
   </g>
 </svg>

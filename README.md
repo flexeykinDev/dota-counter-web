@@ -1,11 +1,11 @@
 <img src="docs/banner.svg" alt="The Counter Web: Dota 2 counter-picks and the item that shuts each hero down" width="100%">
 
-An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, why, and the one item that shuts it down. 127 heroes, 254 counters, patch 7.41e.
+An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, why, and the one item that shuts it down. The counters come from about 2 million Divine and Immortal games on patch 7.41, so every pick has real numbers behind it.
 
 <p>
   <a href="../../actions/workflows/check.yml"><img src="https://img.shields.io/github/actions/workflow/status/flexeykinDev/dota-counter-web/check.yml?branch=master&label=data%20check&style=flat-square&color=f0a04b" alt="Data check"></a>
-  <img src="https://img.shields.io/badge/patch-7.41e-d8552f?style=flat-square" alt="Patch 7.41e">
-  <img src="https://img.shields.io/badge/heroes-127-5aa9e6?style=flat-square" alt="127 heroes">
+  <img src="https://img.shields.io/badge/patch-7.41-d8552f?style=flat-square" alt="Patch 7.41">
+  <img src="https://img.shields.io/badge/counters-732-5aa9e6?style=flat-square" alt="732 counters">
   <img src="https://img.shields.io/badge/build-none-2b2f38?style=flat-square" alt="No build step">
 </p>
 
@@ -22,7 +22,28 @@ An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, wh
 
 ## What it does
 
-<img src="docs/features.svg" alt="Features: 127 heroes, 254 counter-picks, 79 silver bullet items, type-anywhere search, hero panel, share links, data CLI, phone layout, static site" width="100%">
+<img src="docs/features.svg" alt="Features: 127 heroes, 732 counter-picks from over 2 million games, win-rate numbers on every card, 79 silver bullet items, type-anywhere search, share links, data CLI, static site" width="100%">
+
+### New in 1.2
+
+- Counters picked from match data instead of by hand: up to 3 support and 3 core counters per hero, 732 in total
+- Every counter card shows its edge, win rate, number of games and pro record
+- A new reason for every counter, checked against the ability text from the game files
+- The graph still draws only the strongest support and core counter per hero, so it stays readable
+- Clockwork, Outworld Destroyer and Ringmaster renamed to their in-game names: Clockwerk, Outworld Devourer, Ring Master
+
+### How counters are picked
+
+| Step | What happens |
+|---|---|
+| Games | Divine and Immortal public matches from STRATZ, the last 8 full weeks of patch 7.41 (Jul 16 to Sep 10, 2026) |
+| Edge | How many percentage points better a hero does against this one than their usual win rates predict |
+| Filter | At least 200 games in the matchup and an edge of +1.5 or more |
+| Ranking | Edge minus about two standard errors, so a +8 over 250 games doesn't beat a +5 over 10k |
+| Role | Support or core depends on how often the counter is played in position 4 or 5 |
+| Pro record | Wins and losses in pro matches this patch from OpenDota. Shown only, too few games to rank by |
+
+Hoodwink and Witch Doctor have no support counter that clears the bar, and Snapfire has one of each. The site shows fewer rather than padding the list.
 
 ### New in 1.1
 
@@ -61,7 +82,7 @@ An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, wh
 
 ## Data CLI
 
-<img src="docs/cli.svg" alt="Terminal output of counterweb hero pudge and counterweb check" width="100%">
+<img src="docs/cli.svg" alt="Terminal output of counterweb plan anti-mage and counterweb check" width="100%">
 
 Needs Node 18 or newer. No dependencies.
 
@@ -69,22 +90,36 @@ Needs Node 18 or newer. No dependencies.
 node tools/counterweb.mjs check           # fails on errors only
 node tools/counterweb.mjs check --strict  # warnings fail it too
 node tools/counterweb.mjs stats           # counts, most common counters and items
-node tools/counterweb.mjs hero "storm"    # name, prefix or part of a name
+node tools/counterweb.mjs hero "storm"    # counters with numbers and reasons
+node tools/counterweb.mjs plan pudge      # what the data picks vs what data.js has
+node tools/counterweb.mjs facts pudge     # ability text from the game files
+node tools/counterweb.mjs apply file.json # write picked counters with your reasons
 ```
 
 `check` catches the mistakes that break the page or leave a panel half empty:
 
 - links that point at a hero id that doesn't exist, self-links, duplicates, wrong `type`
-- heroes with no support counter or no core counter
+- counters the matchup data doesn't back, counters listed in the wrong role, and lists out of order
+- heroes missing a support or core counter when the data has one
 - missing portraits, broken base64, and portraits or icons that are the wrong size
 - `<` or `>` in text fields
 - `IMAGES` keys that don't match a hero
+
+### Refreshing the numbers
+
+```bash
+cp .env.example .env   # add your free token from https://stratz.com/api
+node tools/fetch-matchups.mjs
+node tools/counterweb.mjs check --strict
+```
+
+The fetch takes about 3 minutes and stays under STRATZ's rate limit. It writes `js/matchups.js` and caches the raw data and ability text in `data-cache/`, which git ignores. If the picks changed, `check` lists what needs a new reason, `plan --json` gives you a template, and `apply` writes it in.
 
 GitHub Actions runs `check --strict` on every push to `master` and on every pull request.
 
 ## Requirements
 
-Any current browser. The page loads D3 from cdnjs and two fonts from Google Fonts. Hero portraits and item icons are inlined in `js/data.js`, so nothing else goes over the network. There's no tracking and nothing is stored.
+Any current browser. The page loads D3 from cdnjs and two fonts from Google Fonts. Hero portraits and item icons are inlined in `js/data.js`, and the matchup numbers ship in `js/matchups.js`, so nothing else goes over the network. There's no tracking and nothing is stored.
 
 <details>
 <summary><b>For developers</b></summary>
@@ -112,9 +147,12 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 ├── index.html               page markup
 ├── css/style.css            all styling, colors are CSS variables on :root
 ├── js/
-│   ├── data.js              GRAPH (heroes, links, items) and IMAGES (portraits)
+│   ├── data.js              GRAPH (heroes, counters with reasons, items) and IMAGES (portraits)
+│   ├── matchups.js          generated: matchup numbers per hero, from STRATZ and OpenDota
 │   └── main.js              D3 graph, hero panel, search, camera, share links
-├── tools/counterweb.mjs     data CLI: check, stats, hero
+├── tools/
+│   ├── counterweb.mjs       data CLI: check, stats, hero, plan, facts, apply
+│   └── fetch-matchups.mjs   pulls fresh matchup numbers (needs STRATZ_TOKEN)
 ├── .github/workflows/       CI: data check on push and PR
 ├── package.json             npm scripts for the CLI, no dependencies
 └── docs/
@@ -124,7 +162,8 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 
 ### How it works
 
-- `GRAPH.links` entries read as "`target` counters `source`". Arrows are drawn from the counter to the hero it beats.
+- `GRAPH.links` entries read as "`target` counters `source`", stored best first. Arrows are drawn from the counter to the hero it beats, and only the first support and first core link per hero is drawn.
+- The panel joins each link with its row in `MATCHUPS` for the numbers, so reasons and numbers live in separate files.
 - The D3 force layout runs 140 ticks before the first paint so the camera can fit the graph, then keeps settling live.
 - Selecting a hero lights its links, scales the portrait up, draws the item badge under it, and writes `#Hero_Name` to the URL with `history.replaceState`.
 - All panel text goes through an HTML escape before it's inserted.
@@ -136,6 +175,7 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 | `npm run check` | `counterweb check --strict` |
 | `npm run stats` | `counterweb stats` |
 | `npm run hero -- pudge` | `counterweb hero pudge` |
+| `npm run fetch` | `fetch-matchups.mjs` |
 | `npm run serve` | static server on port 8000 through `npx http-server` |
 
 ### Adding or fixing data
@@ -146,8 +186,8 @@ See [docs/ADDING_HEROES.md](docs/ADDING_HEROES.md), then run `npm run check`.
 
 ## Data accuracy
 
-Counters and items match patch **7.41e**. Dota changes every patch, so some entries will go stale. If you spot one, open an issue or send a PR with the fix.
+Counters come from Divine and Immortal games on patch **7.41**, fetched September 16, 2026. The numbers go stale as the meta shifts, so they get refreshed with `fetch-matchups.mjs`. Silver bullet items are still hand-picked. If a reason or item looks wrong, open an issue or send a PR.
 
 ## Credits
 
-Built by [flexeykinDEV](https://github.com/flexeykinDev). Hero portraits and item icons are from Valve's Dota 2 CDN. Dota 2 is a trademark of Valve Corporation.
+Built by [flexeykinDEV](https://github.com/flexeykinDev). Match data from [STRATZ](https://stratz.com) and [OpenDota](https://www.opendota.com). Hero portraits and item icons are from Valve's Dota 2 CDN. Dota 2 is a trademark of Valve Corporation.

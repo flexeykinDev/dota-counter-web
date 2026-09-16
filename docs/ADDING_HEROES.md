@@ -57,24 +57,36 @@ print('data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode())
 
 Before reusing an item icon, check whether it's already in the file (search `data.js` for the item's label) — several heroes share the same "silver bullet" item, and reusing an existing icon avoids adding a duplicate image blob.
 
-## 2. Adding or editing a counter relationship
+## 2. Counters
 
-Add an entry to `GRAPH.links`:
+Counters are picked by the matchup data in `js/matchups.js`, not by hand. You write the reasons.
+
+Each entry in `GRAPH.links` looks like this:
 
 ```js
-{ "source": "Muerta", "target": "Nyx Assassin", "type": "support", "desc": "Spiked Carapace reflects Dead Shot's projectile back at her." }
+{"source":"Muerta","target":"Nyx Assassin","type":"support","desc":"Vendetta bursts a fragile carry, and Spiked Carapace reflects her damage back."}
 ```
 
 Field meaning — **this is the part that trips people up**:
 
 - `source` is the hero being countered.
-- `target` is the hero (or item/strategy) that counters them.
-- `type` is `"support"` (blue link) or `"core"` (red link), describing what kind of pick the counter is.
-- `desc` is the one-line explanation shown in the info panel.
+- `target` is the hero that counters them.
+- `type` is `"support"` (blue link) or `"core"` (red link). It must match how the counter is actually played, which comes from the data.
+- `desc` is the one-line reason shown on the counter card.
 
-So `{ "source": "Muerta", "target": "Nyx Assassin", "type": "support" }` reads as: *"Nyx Assassin is a support counter to Muerta."* It will show up in Muerta's info panel under "Support counter: Nyx Assassin", and Nyx Assassin's node will link back to Muerta.
+So the entry above reads as: *"Nyx Assassin is a support counter to Muerta."* Links are stored best first. The graph draws the first support and first core link for each hero, and the panel lists all of them (up to 3 of each).
 
-A hero can have multiple incoming links (multiple heroes counter them) — just add one entry per relationship.
+To rebuild a hero's counters:
+
+1. See what the data picks: `node tools/counterweb.mjs plan muerta`
+2. Get a template with any existing reasons filled in: `node tools/counterweb.mjs plan --json muerta > reasons.json`
+3. Read the abilities involved: `node tools/counterweb.mjs facts muerta "nyx assassin"`
+4. Fill in every empty reason in `reasons.json`. Keep it to one line, name real abilities, and don't claim a dispel or BKB interaction without checking `facts`.
+5. Write it in: `node tools/counterweb.mjs apply reasons.json`
+
+`apply` refuses to write if a picked counter has no reason or the file names a counter the data didn't pick.
+
+To refresh the numbers themselves, see "Refreshing the numbers" in the README.
 
 ## 3. Editing an existing hero's recommended item
 
@@ -90,6 +102,8 @@ Find the hero's node in `GRAPH.nodes` and edit its `item.name` / `item.desc` / `
    node tools/counterweb.mjs check --strict
    ```
 
-   It reports misspelled hero ids in links (which stop the whole graph from loading), missing portraits, broken or wrongly sized images, heroes without a support or core counter, and duplicate links. CI runs the same command on every pull request.
+   It reports misspelled hero ids in links (which stop the whole graph from loading), missing portraits, broken or wrongly sized images, counters the matchup data doesn't back or lists in another role, and duplicate links. CI runs the same command on every pull request.
+
+   A new hero also needs matchup data: run `node tools/fetch-matchups.mjs` once STRATZ has a few weeks of games for it.
 2. Look the hero up in the terminal to read back what you wrote: `node tools/counterweb.mjs hero largo`.
 3. Open `index.html` locally (see the README's developer section) and open `/#Largo` (spaces become underscores, e.g. `/#Crystal_Maiden`) to check the portrait, panel and item badge.
