@@ -51,18 +51,28 @@ GRAPH.nodes.forEach((n, i) => { n.__idx = i; });
 const nodesById = new Map(GRAPH.nodes.map(n => [n.id, n]));
 const linkId = (end) => end.id || end;
 
+const MU = typeof MATCHUPS !== "undefined" ? MATCHUPS : null;
+const matchup = (hero, counter, type) => MU?.heroes[hero]?.counters[type]?.find(c => c.hero === counter) || null;
+
 // outgoing: links where this hero is the source, i.e. the heroes that counter it
 // incoming: links where this hero is the target, i.e. the heroes it counters
 const outgoing = new Map();
 const incoming = new Map();
 GRAPH.nodes.forEach(n => { outgoing.set(n.id, []); incoming.set(n.id, []); });
+// Links are stored best first. The graph draws only the top support and top core
+// counter per hero, the panel lists all of them.
+const drawnKeys = new Set();
 GRAPH.links.forEach(l => {
   outgoing.get(l.source).push(l);
   incoming.get(l.target).push(l);
+  const key = l.source + "|" + l.type;
+  l.drawn = !drawnKeys.has(key);
+  drawnKeys.add(key);
 });
+const drawnLinks = GRAPH.links.filter(l => l.drawn);
 
 const simulation = d3.forceSimulation(GRAPH.nodes)
-  .force("link", d3.forceLink(GRAPH.links).id(d => d.id).distance(95).strength(0.35))
+  .force("link", d3.forceLink(drawnLinks).id(d => d.id).distance(95).strength(0.35))
   .force("charge", d3.forceManyBody().strength(-220))
   .force("center", d3.forceCenter(width / 2, height / 2))
   .force("collide", d3.forceCollide().radius(28));
@@ -71,7 +81,7 @@ const simulation = d3.forceSimulation(GRAPH.nodes)
 const linkSel = g.append("g")
   .attr("class", "links")
   .selectAll("path")
-  .data(GRAPH.links)
+  .data(drawnLinks)
   .join("path")
   .attr("class", d => "link " + d.type)
   .attr("marker-end", d => `url(#arrow-${d.type}-normal)`);
@@ -84,8 +94,9 @@ const nodeSel = g.append("g")
   .attr("class", "node")
   .call(drag(simulation));
 
+// bigger portrait = listed as a counter to more heroes
 function nodeRadius(d){
-  return 12 + Math.min(incoming.get(d.id).length, 6) * 1.6;
+  return 12 + Math.min(incoming.get(d.id).length, 12) * 0.8;
 }
 
 // nested group so hover/click scaling animates independently of the
@@ -236,8 +247,8 @@ svg.on("click", () => {
 function previewNode(id){
   // "who counters me" edges get the bright animated treatment,
   // "who I counter" edges stay visible but quieter
-  const outEdges = new Set(outgoing.get(id));
-  const inEdges = new Set(incoming.get(id));
+  const outEdges = new Set(outgoing.get(id).filter(l => l.drawn));
+  const inEdges = new Set(incoming.get(id).filter(l => l.drawn));
 
   const neighborIds = new Set([id]);
   outEdges.forEach(l => neighborIds.add(linkId(l.target)));
@@ -343,20 +354,40 @@ function avatar(id, cls = ""){
   return src ? `<img class="avatar ${cls}" src="${src}" alt="">` : `<span class="avatar ${cls}"></span>`;
 }
 
+const fmtGames = (n) => n >= 10000 ? Math.round(n / 1000) + "k" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const fmtPct = (n) => (Math.round(n * 10) / 10).toFixed(1);
+
+function statsHtml(row){
+  if(!row) return "";
+  let html = `<div class="card-stats">
+    <span class="stat-edge" title="Wins ${fmtPct(row.adv)} percentage points more often in this matchup than its usual win rate predicts">+${fmtPct(row.adv)}%</span>
+    <span title="Win rate against this hero">${fmtPct(row.winRate)}% win</span>
+    <span title="Divine and Immortal public games">${fmtGames(row.games)} games</span>`;
+  if(row.pro && row.pro[0] >= 5){
+    html += `<span class="stat-pro" title="Pro games this patch: wins-losses">pro ${row.pro[1]}-${row.pro[0] - row.pro[1]}</span>`;
+  }
+  return html + `</div>`;
+}
+
 function showDetail(id){
   const node = nodesById.get(id);
   const counteredBy = outgoing.get(id);
   const counters = incoming.get(id);
   const order = { support: 0, core: 1 };
+  const m = MU?.heroes[id];
 
   let html = `<button class="detail-close" data-action="close" aria-label="Close">×</button>
     <header class="detail-head">
       ${avatar(id, "lg")}
-      <div><span class="chip">${escapeHtml(node.role)}</span><h2>${escapeHtml(node.id)}</h2></div>
+      <div>
+        <span class="chip">${escapeHtml(node.role)}</span><h2>${escapeHtml(node.id)}</h2>
+        ${m ? `<div class="detail-meta">Pos ${m.position} · ${fmtPct(m.winRate)}% win · ${fmtGames(m.games)} games</div>` : ""}
+      </div>
     </header>`;
 
   html += `<div class="section-title">Countered by <span class="n">${counteredBy.length}</span></div>`;
   if(counteredBy.length){
+    // stable sort keeps the data's best-first order inside each type
     [...counteredBy].sort((a, b) => order[a.type] - order[b.type]).forEach(l => {
       const counter = linkId(l.target);
       html += `<button class="card ${l.type}" data-hero="${escapeHtml(counter)}">
@@ -365,6 +396,7 @@ function showDetail(id){
           <div class="card-kicker">${l.type === "support" ? "Support counter" : "Core counter"}</div>
           <div class="card-name">${escapeHtml(counter)}</div>
           <p class="card-desc">${escapeHtml(l.desc)}</p>
+          ${statsHtml(matchup(id, counter, l.type))}
         </div>
       </button>`;
     });
@@ -394,6 +426,11 @@ function showDetail(id){
     }).join("") + `</div>`;
   } else {
     html += `<p class="muted">Not listed as a counter to anyone.</p>`;
+  }
+
+  if(MU){
+    const meta = MU.meta;
+    html += `<p class="detail-source">Divine and Immortal public games, ${escapeHtml(meta.from)} to ${escapeHtml(meta.to)} (STRATZ). Pro games on patch ${escapeHtml(meta.patch)} (OpenDota).</p>`;
   }
 
   detailEl.innerHTML = html;

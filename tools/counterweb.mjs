@@ -1,18 +1,23 @@
 #!/usr/bin/env node
-// Command line tool for js/data.js: validate the graph, print stats, look up a hero.
-// Usage: node tools/counterweb.mjs <check|stats|hero|help> [args]
+// Command line tool for js/data.js: validate the graph, print stats, look up a hero,
+// and rebuild counters from js/matchups.js.
+// Usage: node tools/counterweb.mjs <check|stats|hero|plan|facts|apply|help> [args]
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DATA_PATH = join(ROOT, "js", "data.js");
+const MATCHUPS_PATH = join(ROOT, "js", "matchups.js");
 
 const PORTRAIT_SIZE = [120, 68];
 const ICON_SIZE = [88, 64];
 const LINK_TYPES = ["support", "core"];
+// A counter needs at least this edge (% points over the expected win rate) to be listed.
+const MIN_ADV = 1.5;
+const MAX_PER_TYPE = 3;
 // Icons are drawn with object-fit cover, so a couple of pixels off is fine.
 const SIZE_TOLERANCE = 4;
 const sizeOff = (size, expected) =>
@@ -28,7 +33,34 @@ function loadData(path = DATA_PATH) {
   vm.createContext(ctx);
   // data.js declares top-level consts, which don't land on the context object on their own
   vm.runInContext(src + "\n;this.GRAPH = GRAPH; this.IMAGES = IMAGES;", ctx, { filename: "data.js" });
-  return { GRAPH: ctx.GRAPH, IMAGES: ctx.IMAGES, bytes: Buffer.byteLength(src) };
+  if (existsSync(MATCHUPS_PATH)) {
+    vm.runInContext(readFileSync(MATCHUPS_PATH, "utf8") + "\n;this.MATCHUPS = MATCHUPS;", ctx, { filename: "matchups.js" });
+  }
+  return { GRAPH: ctx.GRAPH, IMAGES: ctx.IMAGES, MATCHUPS: ctx.MATCHUPS || null, src, bytes: Buffer.byteLength(src) };
+}
+
+// The counters the matchup data picks for a hero: best edge first, up to 3 per type.
+function selectCounters(MATCHUPS, hero) {
+  const h = MATCHUPS.heroes[hero];
+  const pick = (type) => (h?.counters[type] || []).filter((c) => c.adv >= MIN_ADV).slice(0, MAX_PER_TYPE);
+  return { support: pick("support"), core: pick("core") };
+}
+
+const matchupRow = (MATCHUPS, hero, counter, type) =>
+  MATCHUPS?.heroes[hero]?.counters[type]?.find((c) => c.hero === counter) || null;
+
+const fmtGames = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n));
+
+// data.js with one node and one link per line, so diffs stay readable
+function writeData(src, GRAPH) {
+  const imagesAt = src.indexOf("const IMAGES");
+  if (imagesAt < 0) throw new Error("const IMAGES not found in data.js");
+  const out = "const GRAPH = {\"nodes\": [\n" +
+    GRAPH.nodes.map((n) => JSON.stringify(n)).join(",\n") +
+    "\n], \"links\": [\n" +
+    GRAPH.links.map((l) => JSON.stringify({ source: l.source, target: l.target, type: l.type, desc: l.desc })).join(",\n") +
+    "\n]};\n" + src.slice(imagesAt);
+  writeFileSync(DATA_PATH, out);
 }
 
 // Reads width/height from a base64 WebP data URI (VP8, VP8L or VP8X chunk).
@@ -47,7 +79,7 @@ function webpSize(uri) {
   return null;
 }
 
-function check({ GRAPH, IMAGES }) {
+function check({ GRAPH, IMAGES, MATCHUPS }) {
   const errors = [];
   const warnings = [];
   const err = (msg) => errors.push(msg);
@@ -116,7 +148,32 @@ function check({ GRAPH, IMAGES }) {
   // Every hero should list at least one support and one core counter.
   for (const [id, c] of counters) {
     for (const type of LINK_TYPES) {
-      if (c[type].length === 0) warn(`${id}: no ${type} counter`);
+      // with matchup data, an empty list is fine when no hero clears the bar
+      const available = MATCHUPS ? selectCounters(MATCHUPS, id)[type].length : 1;
+      if (c[type].length === 0 && available > 0) warn(`${id}: no ${type} counter`);
+      if (c[type].length > MAX_PER_TYPE) err(`${id}: ${c[type].length} ${type} counters, max is ${MAX_PER_TYPE}`);
+    }
+  }
+
+  // Counters should be backed by the matchup data, listed best first, in the role the hero is played.
+  if (MATCHUPS) {
+    for (const id of Object.keys(MATCHUPS.heroes)) if (!ids.has(id)) warn(`matchups.js has "${id}", which is not a hero id`);
+    for (const [id, c] of counters) {
+      if (!MATCHUPS.heroes[id]) { warn(`${id}: no matchup data`); continue; }
+      for (const type of LINK_TYPES) {
+        const ranked = MATCHUPS.heroes[id].counters[type] || [];
+        let lastRank = -1;
+        for (const target of c[type]) {
+          const row = matchupRow(MATCHUPS, id, target, type);
+          const role = MATCHUPS.heroes[target]?.role;
+          if (role && role !== type) warn(`${id} <- ${target}: listed as a ${type} counter, but ${target} is played as ${role}`);
+          else if (!row) warn(`${id} <- ${target}: not among the data's top ${type} counters`);
+          else if (row.adv < MIN_ADV) warn(`${id} <- ${target}: edge is only +${row.adv}, needs +${MIN_ADV}`);
+          const rank = ranked.indexOf(row);
+          if (row && rank < lastRank) warn(`${id}: ${type} counters are not in the data's order (${target})`);
+          if (row) lastRank = rank;
+        }
+      }
     }
   }
 
@@ -151,27 +208,141 @@ function stats(data) {
   console.log(dim("  " + (never.join(", ") || "none")));
 }
 
-function hero(data, query) {
-  const { GRAPH } = data;
-  if (!query) { console.error("usage: counterweb hero <name>"); return 1; }
-  const q = query.toLowerCase();
-  const node = GRAPH.nodes.find((n) => n.id.toLowerCase() === q)
+function findHero(GRAPH, query) {
+  const q = String(query || "").toLowerCase().trim();
+  if (!q) return null;
+  return GRAPH.nodes.find((n) => n.id.toLowerCase() === q)
     || GRAPH.nodes.find((n) => n.id.toLowerCase().startsWith(q))
-    || GRAPH.nodes.find((n) => n.id.toLowerCase().includes(q));
+    || GRAPH.nodes.find((n) => n.id.toLowerCase().includes(q))
+    || null;
+}
+
+function statLine(row) {
+  if (!row) return dim("no matchup data");
+  let s = `${green("+" + row.adv)} edge, ${row.winRate}% win, ${fmtGames(row.games)} games`;
+  if (row.pro) s += dim(`, pro ${row.pro[1]}-${row.pro[0] - row.pro[1]}`);
+  return s;
+}
+
+function hero(data, query) {
+  const { GRAPH, MATCHUPS } = data;
+  if (!query) { console.error("usage: counterweb hero <name>"); return 1; }
+  const node = findHero(GRAPH, query);
   if (!node) { console.error(red(`No hero matches "${query}"`)); return 1; }
 
   const countered = GRAPH.links.filter((l) => l.source === node.id);
   const counters = GRAPH.links.filter((l) => l.target === node.id).map((l) => l.source);
+  const m = MATCHUPS?.heroes[node.id];
 
-  console.log(`${bold(node.id)}  ${dim(node.role)}`);
+  console.log(`${bold(node.id)}  ${dim(node.role)}${m ? dim(`  pos ${m.position}, ${m.winRate}% win, ${fmtGames(m.games)} games`) : ""}`);
   for (const l of countered) {
     const label = l.type === "support" ? blue("Support counter") : red("Core counter   ");
-    console.log(`  ${label}  ${bold(l.target)}`);
+    console.log(`  ${label}  ${bold(l.target)}  ${statLine(matchupRow(MATCHUPS, node.id, l.target, l.type))}`);
     console.log(`                   ${dim(l.desc)}`);
   }
   console.log(`  ${yellow("Silver bullet  ")}  ${bold(node.item.name)}`);
   console.log(`                   ${dim(node.item.desc)}`);
-  console.log(`  ${green("Counters       ")}  ${counters.join(", ") || dim("nobody")}`);
+  console.log(`  ${green("Counters       ")}  ${[...new Set(counters)].join(", ") || dim("nobody")}`);
+  return 0;
+}
+
+// Shows the counters the data picks, next to what data.js has now.
+// --json prints a reasons template for `apply`, with current reasons filled in.
+function plan(data, names, asJson) {
+  const { GRAPH, MATCHUPS } = data;
+  if (!MATCHUPS) { console.error(red("js/matchups.js is missing. Run tools/fetch-matchups.mjs first.")); return 1; }
+  const nodes = names.length ? names.map((n) => findHero(GRAPH, n)) : GRAPH.nodes;
+  if (nodes.some((n) => !n)) { console.error(red(`Unknown hero in: ${names.join(", ")}`)); return 1; }
+
+  const template = {};
+  for (const node of nodes) {
+    const picked = selectCounters(MATCHUPS, node.id);
+    const current = GRAPH.links.filter((l) => l.source === node.id);
+    template[node.id] = {};
+    if (!asJson) console.log(`\n${bold(node.id)}  ${dim(MATCHUPS.heroes[node.id].role + ", pos " + MATCHUPS.heroes[node.id].position)}`);
+    for (const type of LINK_TYPES) {
+      for (const row of picked[type]) {
+        const have = current.find((l) => l.target === row.hero);
+        template[node.id][row.hero] = have ? have.desc : "";
+        if (!asJson) {
+          const label = type === "support" ? blue("support") : red("core   ");
+          console.log(`  ${label} ${row.hero.padEnd(20)} ${statLine(row)} ${have ? dim("(has reason)") : yellow("(new)")}`);
+        }
+      }
+    }
+    if (!asJson) {
+      for (const l of current.filter((l) => !(l.target in template[node.id]))) console.log(`  ${dim("drop    " + l.target)}`);
+    }
+  }
+  if (asJson) console.log(JSON.stringify(template, null, 2));
+  return 0;
+}
+
+// Ability text from OpenDota's game constants, cached by fetch-matchups.mjs in data-cache/.
+function facts(data, names) {
+  const need = ["heroes.json", "hero_abilities.json", "abilities.json"].map((f) => join(ROOT, "data-cache", f));
+  if (need.some((f) => !existsSync(f))) { console.error(red("data-cache is missing. Run tools/fetch-matchups.mjs first.")); return 1; }
+  const [heroes, heroAbilities, abilities] = need.map((f) => JSON.parse(readFileSync(f, "utf8")));
+  const byName = new Map(Object.values(heroes).map((h) => [h.localized_name.toLowerCase(), h]));
+  for (const name of names) {
+    const node = findHero(data.GRAPH, name);
+    const h = node && byName.get(node.id.toLowerCase());
+    if (!h) { console.log(red(`No ability data for "${name}"`)); continue; }
+    console.log(`\n${bold(node.id)}  ${dim(h.attack_type + ", " + h.roles.join("/"))}`);
+    for (const key of heroAbilities[h.name]?.abilities || []) {
+      const a = abilities[key];
+      if (!a || !a.dname || key === "generic_hidden") continue;
+      const tags = [a.dmg_type && `${a.dmg_type} dmg`, a.bkbpierce === "Yes" && "pierces BKB", a.dispellable && `dispel: ${a.dispellable}`].filter(Boolean).join(", ");
+      const desc = String(a.desc || "").replace(/\s+/g, " ").slice(0, 260);
+      console.log(`  ${bold(a.dname)}${tags ? dim(" [" + tags + "]") : ""}: ${desc}`);
+    }
+  }
+  return 0;
+}
+
+// Replaces heroes' counters with the data's picks, using reasons from a JSON file:
+// { "Hero": { "Counter": "one-line reason", ... }, ... }
+function apply(data, file) {
+  const { GRAPH, MATCHUPS, src } = data;
+  if (!MATCHUPS) { console.error(red("js/matchups.js is missing.")); return 1; }
+  if (!file || !existsSync(file)) { console.error(red("usage: counterweb apply <reasons.json>")); return 1; }
+  const reasons = JSON.parse(readFileSync(file, "utf8"));
+  const problems = [];
+  const replaced = new Map();
+
+  for (const [heroId, byCounter] of Object.entries(reasons)) {
+    if (!GRAPH.nodes.some((n) => n.id === heroId)) { problems.push(`${heroId}: not a hero id`); continue; }
+    const picked = selectCounters(MATCHUPS, heroId);
+    const links = [];
+    for (const type of LINK_TYPES) {
+      for (const row of picked[type]) {
+        const desc = String(byCounter[row.hero] || "").trim();
+        if (!desc) problems.push(`${heroId} <- ${row.hero}: no reason`);
+        else if (/[<>]/.test(desc)) problems.push(`${heroId} <- ${row.hero}: reason contains < or >`);
+        links.push({ source: heroId, target: row.hero, type, desc });
+      }
+    }
+    for (const counter of Object.keys(byCounter)) {
+      if (!links.some((l) => l.target === counter)) problems.push(`${heroId} <- ${counter}: not one of the picked counters`);
+    }
+    replaced.set(heroId, links);
+  }
+
+  if (problems.length) {
+    problems.forEach((p) => console.log(`${red("error")} ${p}`));
+    console.log(red(`Nothing written: ${problems.length} problems`));
+    return 1;
+  }
+
+  // hero order follows nodes; heroes not in the file keep their current links
+  const out = [];
+  for (const node of GRAPH.nodes) {
+    out.push(...(replaced.get(node.id) || GRAPH.links.filter((l) => l.source === node.id)));
+  }
+  GRAPH.links = out;
+  writeData(src, GRAPH);
+  const count = [...replaced.values()].reduce((a, l) => a + l.length, 0);
+  console.log(green(`Updated ${replaced.size} heroes, ${count} counters. data.js now has ${out.length} links.`));
   return 0;
 }
 
@@ -180,11 +351,17 @@ const HELP = `The Counter Web data tool
 Usage: node tools/counterweb.mjs <command> [args]
 
 Commands:
-  check          validate js/data.js (exit code 1 on errors)
-  check --strict also fail on warnings
-  stats          hero, link and item counts
-  hero <name>    print a hero's counters, e.g. "hero pudge"
-  help           show this text
+  check              validate js/data.js against itself and js/matchups.js (exit 1 on errors)
+  check --strict     also fail on warnings
+  stats              hero, link and item counts
+  hero <name>        print a hero's counters with matchup numbers, e.g. "hero pudge"
+  plan [names...]    counters the matchup data picks, next to the current ones
+  plan --json [...]  reasons template for apply, current reasons filled in
+  facts <names...>   ability text from the cached game constants
+  apply <file.json>  write the picked counters with reasons from the file into data.js
+  help               show this text
+
+Counters need a +${MIN_ADV} edge, up to ${MAX_PER_TYPE} support and ${MAX_PER_TYPE} core per hero.
 `;
 
 function main(argv) {
@@ -195,7 +372,7 @@ function main(argv) {
   try {
     data = loadData();
   } catch (e) {
-    console.error(red(`Could not load js/data.js: ${e.message}`));
+    console.error(red(`Could not load data: ${e.message}`));
     return 1;
   }
 
@@ -211,6 +388,12 @@ function main(argv) {
   }
   if (cmd === "stats") { stats(data); return 0; }
   if (cmd === "hero") return hero(data, rest.join(" "));
+  if (cmd === "plan") {
+    const asJson = rest.includes("--json");
+    return plan(data, rest.filter((a) => a !== "--json"), asJson);
+  }
+  if (cmd === "facts") return facts(data, rest);
+  if (cmd === "apply") return apply(data, rest[0]);
 
   console.error(red(`Unknown command "${cmd}"\n`));
   console.log(HELP);

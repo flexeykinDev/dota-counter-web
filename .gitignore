@@ -1,2 +1,8 @@
 .claude/
 .DS_Store
+
+# API tokens and raw data dumps
+.env
+.env.*
+!.env.example
+data-cache/
