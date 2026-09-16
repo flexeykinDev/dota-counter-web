@@ -1,0 +1,20 @@
+{
+  "name": "dota-counter-web",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Interactive graph of Dota 2 hero counter-picks",
+  "type": "module",
+  "bin": {
+    "counterweb": "tools/counterweb.mjs"
+  },
+  "scripts": {
+    "check": "node tools/counterweb.mjs check --strict",
+    "stats": "node tools/counterweb.mjs stats",
+    "hero": "node tools/counterweb.mjs hero",
+    "serve": "npx --yes http-server -p 8000 -c-1 ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

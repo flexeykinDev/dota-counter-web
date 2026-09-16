@@ -84,6 +84,12 @@ Find the hero's node in `GRAPH.nodes` and edit its `item.name` / `item.desc` / `
 
 `GRAPH.nodes[*].id` values are the only thing tying the data together — `GRAPH.links` and `IMAGES` both reference heroes by that exact string. After editing:
 
-1. Open `index.html` locally (see [README](../README.md#running-locally)) and confirm the new/edited hero renders, has a portrait, and its info panel shows correctly on click.
-2. Search for the hero by name to confirm the live filter finds it.
-3. Double-check any hero you added counters is spelled identically to its `id` elsewhere in the file — a typo silently produces a dangling link with no target node.
+1. Run the data checker (Node 18+, no install needed):
+
+   ```bash
+   node tools/counterweb.mjs check --strict
+   ```
+
+   It reports misspelled hero ids in links (which stop the whole graph from loading), missing portraits, broken or wrongly sized images, heroes without a support or core counter, and duplicate links. CI runs the same command on every pull request.
+2. Look the hero up in the terminal to read back what you wrote: `node tools/counterweb.mjs hero largo`.
+3. Open `index.html` locally (see the README's developer section) and open `/#Largo` (spaces become underscores, e.g. `/#Crystal_Maiden`) to check the portrait, panel and item badge.

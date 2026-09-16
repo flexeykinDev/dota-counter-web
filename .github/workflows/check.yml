@@ -1,0 +1,23 @@
+name: Check data
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate js/data.js
+        run: node tools/counterweb.mjs check --strict
+      - name: Syntax check scripts
+        run: |
+          node --check js/main.js
+          node --check tools/counterweb.mjs
+      - name: Stats
+        run: node tools/counterweb.mjs stats
