@@ -18,7 +18,7 @@ An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, wh
 3. Read the panel: who counters the hero, the silver bullet item, and who the hero counters.
 4. Copy the URL to share that hero, for example [`/#Lifestealer`](https://flexeykindev.github.io/dota-counter-web/#Lifestealer).
 
-<img src="docs/screenshot-detail.png" alt="Lifestealer selected: its counters light up and the hero panel shows Viper, Morphling and Ghost Scepter" width="100%">
+<img src="docs/showcase.svg" alt="The site on desktop with Lifestealer selected and on a phone with Pudge selected" width="100%">
 
 ## What it does
 
@@ -58,8 +58,6 @@ An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, wh
 | Drag a hero | Move it |
 | Scroll, or the `+` `−` buttons | Zoom |
 | Fit button | Clear the selection and show the whole graph |
-
-<img src="docs/screenshot.png" alt="The full graph of 127 heroes" width="100%">
 
 ## Data CLI
 
@@ -121,7 +119,7 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 ├── package.json             npm scripts for the CLI, no dependencies
 └── docs/
     ├── ADDING_HEROES.md     data format and how to add heroes
-    └── *.svg, *.png         README graphics and screenshots
+    └── *.svg                README graphics (showcase.svg embeds the screenshots)
 ```
 
 ### How it works
