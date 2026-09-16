@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 624" width="1200" height="624" role="img" aria-label="What it does">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15171c"/>
+      <stop offset="1" stop-color="#221a16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5c46e"/>
+      <stop offset="1" stop-color="#d8552f"/>
+    </linearGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5c46e" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#d8552f" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+  <style>
+    text { font-family: Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .card { fill: #ffffff; fill-opacity: 0.035; stroke: #ffffff; stroke-opacity: 0.09; stroke-width: 1.5; }
+    .hot { fill: url(#hl); stroke: #f5c46e; stroke-opacity: 0.55; stroke-width: 1.5; }
+    .title { fill: #7d86a3; font-size: 15px; letter-spacing: 3px; }
+    .value { fill: #f4f6ff; font-size: 30px; font-weight: 700; }
+    .line { fill: #9aa2ba; font-size: 17px; }
+  </style>
+  <rect width="1200" height="624" rx="18" fill="url(#bg)"/>
+  <text x="30" y="62" fill="#f4f6ff" font-size="34" font-weight="700">What it does</text>
+  <rect x="30" y="76" width="64" height="4" rx="2" fill="url(#accent)"/>
+
+  <g transform="translate(26 104)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">HEROES</text>
+    <text x="26" y="80" class="value">127</text>
+    <text x="26" y="110" class="line">Every hero in patch 7.41e,</text>
+    <text x="26" y="132" class="line">Largo included</text>
+  </g>
+  <g transform="translate(416 104)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">COUNTER-PICKS</text>
+    <text x="26" y="80" class="value">254</text>
+    <text x="26" y="110" class="line">A support and a core counter</text>
+    <text x="26" y="132" class="line">per hero, each with a reason</text>
+  </g>
+  <g transform="translate(806 104)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">SILVER BULLETS</text>
+    <text x="26" y="80" class="value">79 items</text>
+    <text x="26" y="110" class="line">The item that shuts each</text>
+    <text x="26" y="132" class="line">hero down, with icons</text>
+  </g>
+  <g transform="translate(26 276)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">SEARCH</text>
+    <text x="26" y="80" class="value">Type anywhere</text>
+    <text x="26" y="110" class="line">Matches any word, so "void"</text>
+    <text x="26" y="132" class="line">finds Faceless Void too</text>
+  </g>
+  <g transform="translate(416 276)">
+    <rect width="368" height="150" rx="14" class="hot"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NEW</text>
+    <text x="26" y="80" class="value">Hero panel</text>
+    <text x="26" y="110" class="line">Counter cards, item card and</text>
+    <text x="26" y="132" class="line">clickable hero chips</text>
+  </g>
+  <g transform="translate(806 276)">
+    <rect width="368" height="150" rx="14" class="hot"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NEW</text>
+    <text x="26" y="80" class="value">Share links</text>
+    <text x="26" y="110" class="line">Every hero has its own URL,</text>
+    <text x="26" y="132" class="line">like /#Pudge</text>
+  </g>
+  <g transform="translate(26 448)">
+    <rect width="368" height="150" rx="14" class="hot"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NEW</text>
+    <text x="26" y="80" class="value">Data CLI</text>
+    <text x="26" y="110" class="line">Checks every link, portrait</text>
+    <text x="26" y="132" class="line">and item icon in data.js</text>
+  </g>
+  <g transform="translate(416 448)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">PHONES</text>
+    <text x="26" y="80" class="value">Bottom sheet</text>
+    <text x="26" y="110" class="line">Tap a hero and the panel</text>
+    <text x="26" y="132" class="line">slides up from below</text>
+  </g>
+  <g transform="translate(806 448)">
+    <rect width="368" height="150" rx="14" class="card"/>
+    <rect x="0" y="22" width="4" height="30" rx="2" fill="url(#accent)"/>
+    <text x="26" y="40" class="title">NO BUILD</text>
+    <text x="26" y="80" class="value">Static site</text>
+    <text x="26" y="110" class="line">HTML, CSS and D3. No backend,</text>
+    <text x="26" y="132" class="line">no bundler, no install</text>
+  </g>
+</svg>

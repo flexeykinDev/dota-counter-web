@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" width="320" height="72" role="img" aria-label="Open the live map in your browser">
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5c46e"/>
+      <stop offset="0.5" stop-color="#f0a04b"/>
+      <stop offset="1" stop-color="#d8552f"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="72" rx="36" fill="url(#accent)"/>
+  <g transform="translate(36 36)" fill="none" stroke="#1a1109" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-9 -7 L8 -9 M-9 -7 L0 10 M8 -9 L0 10" stroke-opacity="0.6"/>
+    <circle cx="-9" cy="-7" r="4" fill="#1a1109"/>
+    <circle cx="8" cy="-9" r="4" fill="#1a1109"/>
+    <circle cx="0" cy="10" r="4.8" fill="#1a1109"/>
+  </g>
+  <g font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+    <text x="70" y="33" fill="#1a1109" font-size="21" font-weight="700">Open the live map</text>
+    <text x="70" y="54" fill="#1a1109" fill-opacity="0.72" font-size="14">In the browser, no install</text>
+  </g>
+  <path d="M286 28 L294 36 L286 44" fill="none" stroke="#1a1109" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

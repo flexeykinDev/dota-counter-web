@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 430" width="1200" height="430" role="img" aria-label="Terminal: counterweb hero pudge prints Pudge's support counter, core counter and silver bullet item, then counterweb check reports 0 errors">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121318"/>
+      <stop offset="1" stop-color="#1d1714"/>
+    </linearGradient>
+  </defs>
+  <style>
+    text { font-family: Cascadia Code, Consolas, SF Mono, Menlo, monospace; font-size: 17px; fill: #c9ccd3; white-space: pre; }
+    .dim { fill: #6f747e; }
+    .p { fill: #f0a04b; }
+    .b { font-weight: 700; fill: #f4f5f7; }
+    .s { fill: #5aa9e6; }
+    .c { fill: #ef5b52; }
+    .y { fill: #f5c46e; }
+    .g { fill: #7fd08a; }
+    .cursor { animation: blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+
+  <rect width="1200" height="430" rx="18" fill="url(#bg)"/>
+  <rect x="0.75" y="0.75" width="1198.5" height="428.5" rx="17.5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5"/>
+  <path d="M0 18 A18 18 0 0 1 18 0 H1182 A18 18 0 0 1 1200 18 V52 H0 Z" fill="#ffffff" fill-opacity="0.035"/>
+  <circle cx="32" cy="26" r="7" fill="#ef5b52"/>
+  <circle cx="56" cy="26" r="7" fill="#f0a04b"/>
+  <circle cx="80" cy="26" r="7" fill="#7fd08a"/>
+  <text x="600" y="32" text-anchor="middle" class="dim" style="font-size:15px">tools/counterweb.mjs</text>
+
+  <text x="36" y="96"><tspan class="p">$ </tspan>node tools/counterweb.mjs hero pudge</text>
+  <text x="36" y="132"><tspan class="b">Pudge</tspan>  <tspan class="dim">Hook support</tspan></text>
+  <text x="36" y="164">  <tspan class="s">Support counter</tspan>  <tspan class="b">Bane</tspan></text>
+  <text x="36" y="188" class="dim">                   Nightmare / Fiend's Grip instantly breaks the Dismember channel.</text>
+  <text x="36" y="220">  <tspan class="c">Core counter</tspan>     <tspan class="b">Lifestealer</tspan></text>
+  <text x="36" y="244" class="dim">                   Feast scales off his bloated max HP for massive damage.</text>
+  <text x="36" y="276">  <tspan class="y">Silver bullet</tspan>    <tspan class="b">Sentry Wards / Spirit Vessel</tspan></text>
+  <text x="36" y="300" class="dim">                   His hooks are useless if you can see him, and Vessel cuts his regen.</text>
+
+  <text x="36" y="348"><tspan class="p">$ </tspan>node tools/counterweb.mjs check --strict</text>
+  <text x="36" y="380" class="g">127 heroes, 254 links: 0 errors, 0 warnings</text>
+  <text x="36" y="408"><tspan class="p">$ </tspan><tspan class="cursor">_</tspan></text>
+</svg>
