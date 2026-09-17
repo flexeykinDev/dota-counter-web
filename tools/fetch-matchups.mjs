@@ -251,6 +251,7 @@ console.log("OpenDota: ability constants");
 writeFileSync(join(ROOT, "data-cache", "heroes.json"), JSON.stringify(await getJson("https://api.opendota.com/api/constants/heroes")));
 writeFileSync(join(ROOT, "data-cache", "hero_abilities.json"), JSON.stringify(await getJson("https://api.opendota.com/api/constants/hero_abilities")));
 writeFileSync(join(ROOT, "data-cache", "abilities.json"), JSON.stringify(await getJson("https://api.opendota.com/api/constants/abilities")));
+writeFileSync(join(ROOT, "data-cache", "items.json"), JSON.stringify(await getJson("https://api.opendota.com/api/constants/items")));
 writeFileSync(join(ROOT, "data-cache", "matchups-raw.json"), JSON.stringify({ meta, raw }, null, 1));
 writeFileSync(
   join(ROOT, "js", "matchups.js"),

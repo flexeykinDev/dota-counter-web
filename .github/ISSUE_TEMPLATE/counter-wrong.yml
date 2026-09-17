@@ -1,0 +1,52 @@
+name: A counter looks wrong
+description: A counter, a reason or a role on the map doesn't match how the matchup actually plays
+title: "[counter] "
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Counters are picked from Divine and Immortal match data, so "this hero doesn't feel like a counter" is expected sometimes. The reasons, roles and items are written by hand, and those are where mistakes live.
+  - type: input
+    id: hero
+    attributes:
+      label: Hero being countered
+      placeholder: Pudge
+    validations:
+      required: true
+  - type: input
+    id: counter
+    attributes:
+      label: Counter
+      placeholder: Weaver
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What's wrong
+      options:
+        - The reason is inaccurate
+        - It's listed as support but played as core, or the other way round
+        - The silver bullet item is wrong or out of date
+        - This matchup doesn't work at all
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What should it say instead
+      description: Name the abilities or items that decide it. If a dispel, break or BKB interaction is involved, say which.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Anything backing it up
+      description: Match IDs, your own win rate in the matchup, numbers from another site, a patch note. Optional.
+  - type: input
+    id: bracket
+    attributes:
+      label: Your bracket
+      placeholder: Ancient, Divine, Immortal, pro scene

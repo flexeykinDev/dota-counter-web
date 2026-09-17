@@ -1,0 +1,47 @@
+name: Something on the site is broken
+description: The graph, panel, search or layout misbehaves
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to see it
+      placeholder: |
+        1. Open the map
+        2. Type "pudge"
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: What you expected instead
+  - type: dropdown
+    id: device
+    attributes:
+      label: Where
+      options:
+        - Desktop browser
+        - Phone
+        - Tablet
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 141, Firefox 140, Safari 18
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Open developer tools, the Console tab, and paste anything red. Optional.
+      render: text

@@ -1,0 +1,77 @@
+name: Refresh matchup data
+
+# Pulls fresh numbers from STRATZ and OpenDota and opens a pull request.
+# Needs a repository secret named STRATZ_TOKEN (free token from https://stratz.com/api).
+# Nothing is pushed to master: the pull request is there for you to read first,
+# because new picks usually need new reasons written by hand.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the token is set
+        env:
+          STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}
+        run: |
+          if [ -z "$STRATZ_TOKEN" ]; then
+            echo "STRATZ_TOKEN secret is not set. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Fetch matchups
+        env:
+          STRATZ_TOKEN: ${{ secrets.STRATZ_TOKEN }}
+        run: node tools/fetch-matchups.mjs
+
+      - name: Check the data
+        id: check
+        run: |
+          node tools/counterweb.mjs check > check.txt 2>&1 || true
+          cat check.txt
+
+      - name: Open a pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- js/matchups.js; then
+            echo "Numbers are unchanged, nothing to do."
+            exit 0
+          fi
+
+          branch="data/refresh-$(date -u +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add js/matchups.js
+          git commit -m "Refresh matchup data ($(date -u +%Y-%m-%d))"
+          git push -u origin "$branch"
+
+          {
+            echo "Fresh numbers from STRATZ (Divine and Immortal) and OpenDota (pro games)."
+            echo
+            echo "\`check\` says:"
+            echo
+            echo '```'
+            tail -40 check.txt
+            echo '```'
+            echo
+            echo "Warnings above mean the picks changed and those counters need a reason."
+            echo "See CONTRIBUTING.md: \`plan --json\` for a template, \`apply\` to write it in."
+            echo "Do not merge until \`check --strict\` passes."
+          } > body.md
+
+          gh pr create --title "Refresh matchup data" --body-file body.md --base master --head "$branch"

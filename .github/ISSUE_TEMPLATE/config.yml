@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question or argue about a matchup
+    url: https://github.com/flexeykinDev/dota-counter-web/discussions
+    about: Discussions are the place for "is X really a counter to Y" and for ideas that aren't bugs yet.
+  - name: The live map
+    url: https://flexeykindev.github.io/dota-counter-web/
+    about: Check the current data before reporting. Every hero has its own link, like /#Pudge.
+  - name: How the data works
+    url: https://github.com/flexeykinDev/dota-counter-web#how-counters-are-picked
+    about: Where the numbers come from, and the thresholds a counter has to clear.

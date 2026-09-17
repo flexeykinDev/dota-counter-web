@@ -118,6 +118,18 @@ function check({ GRAPH, IMAGES, MATCHUPS }) {
     }
   }
 
+  // Item names should be real items, or one of the short names in ITEM_ALIASES.
+  const gameItems = itemNames();
+  if (gameItems) {
+    for (const n of GRAPH.nodes) {
+      for (const part of String(n.item?.name || "").split("/")) {
+        const name = part.trim();
+        if (!name) continue;
+        if (!gameItems.has(name) && !ITEM_ALIASES[name]) warn(`${n.id}: "${name}" is not an item in the game data`);
+      }
+    }
+  }
+
   for (const id of ids) {
     const size = webpSize(IMAGES?.[id]);
     if (!IMAGES?.[id]) err(`${id}: no portrait in IMAGES`);
@@ -206,6 +218,93 @@ function stats(data) {
   topItems.forEach(([name, n]) => console.log(`  ${String(n).padStart(3)}  ${name}`));
   console.log(bold(`\nHeroes that counter nobody (${never.length})`));
   console.log(dim("  " + (never.join(", ") || "none")));
+}
+
+// ---- item names -------------------------------------------------------
+// Short names the data uses for items, mapped to their name in the game files.
+const ITEM_ALIASES = {
+  "BKB": "Black King Bar",
+  "Blink": "Blink Dagger",
+  "Eul's": "Eul's Scepter of Divinity",
+  "Eul's Scepter": "Eul's Scepter of Divinity",
+  "Gem": "Gem of True Sight",
+  "Linken's": "Linken's Sphere",
+  "Medallion": "Medallion of Courage",
+  "Orchid": "Orchid Malevolence",
+  "Pipe": "Pipe of Insight",
+  "Sentries": "Sentry Ward",
+  "Sentry Wards": "Sentry Ward",
+  "Sheepstick": "Scythe of Vyse",
+  "TP Scroll": "Town Portal Scroll",
+};
+
+function itemNames() {
+  const path = join(ROOT, "data-cache", "items.json");
+  if (!existsSync(path)) return null;
+  return new Set(Object.values(JSON.parse(readFileSync(path, "utf8"))).map((i) => i.dname).filter(Boolean));
+}
+
+// ---- reason linting ---------------------------------------------------
+// Words that look like ability names but aren't, so the linter leaves them alone.
+const LINT_IGNORE = new Set([
+  "Aghanim", "Aghanim's", "Agility", "Armor", "Attack", "Break", "Dota", "Health", "Intelligence",
+  "Mana", "Pos", "Pure", "Strength", "Magic", "Physical", "Divine", "Immortal", "Illusions", "Illusion",
+  "Familiars", "Brewlings", "Meepos", "Meepo", "Track", "True", "Sight", "Shadow", "Realm",
+]);
+
+// Ability names for a hero, from the cached game constants.
+function abilityNames(cache, heroId) {
+  const { heroes, heroAbilities, abilities } = cache;
+  const hero = heroes.get(heroId);
+  if (!hero) return null;
+  const names = new Set([heroId]);
+  for (const key of heroAbilities[hero.name]?.abilities || []) {
+    const dname = abilities[key]?.dname;
+    if (dname) names.add(dname);
+  }
+  return names;
+}
+
+function loadFactsCache() {
+  const files = ["heroes.json", "hero_abilities.json", "abilities.json"].map((f) => join(ROOT, "data-cache", f));
+  if (files.some((f) => !existsSync(f))) return null;
+  const [heroesRaw, heroAbilities, abilities] = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
+  const heroes = new Map(Object.values(heroesRaw).map((h) => [h.localized_name, h]));
+  return { heroes, heroAbilities, abilities };
+}
+
+// Flags capitalised phrases in a reason that match no ability of either hero and no item.
+function lint(data) {
+  const { GRAPH } = data;
+  const cache = loadFactsCache();
+  const items = itemNames();
+  if (!cache || !items) {
+    console.error(red("data-cache is missing. Run tools/fetch-matchups.mjs first."));
+    return 1;
+  }
+  const itemWords = new Set();
+  for (const name of [...items, ...Object.keys(ITEM_ALIASES)]) for (const w of name.split(/[\s'/]+/)) itemWords.add(w);
+
+  let flagged = 0;
+  for (const l of GRAPH.links) {
+    const known = new Set([...(abilityNames(cache, l.source) || []), ...(abilityNames(cache, l.target) || [])]);
+    const knownWords = new Set();
+    for (const name of known) for (const w of name.split(/[\s'/]+/)) knownWords.add(w);
+    // capitalised words mid-sentence, the shape an ability name has
+    for (const m of l.desc.matchAll(/(?<![.!?]\s)(?<!^)\b([A-Z][a-z']+(?:\s+(?:of|the|in|a)\s+)?(?:\s?[A-Z][a-z']+)*)/g)) {
+      // "Dismember's" and "Blinks" should match Dismember and Blink
+      const base = (s) => s.replace(/'s\b/g, "").replace(/s$/, "");
+      const phrase = m[1].trim();
+      const first = phrase.split(/\s+/)[0];
+      const forms = new Set([phrase, base(phrase), first, base(first)]);
+      if ([...forms].some((f) => LINT_IGNORE.has(f) || known.has(f) || items.has(f) || ITEM_ALIASES[f] || knownWords.has(f) || itemWords.has(f))) continue;
+      console.log(`${yellow("check")} ${l.source} <- ${l.target}: "${phrase}"`);
+      console.log(dim(`        ${l.desc}`));
+      flagged++;
+    }
+  }
+  console.log(flagged ? yellow(`${flagged} phrases to check by hand`) : green("every named ability belongs to one of the two heroes"));
+  return 0;
 }
 
 function findHero(GRAPH, query) {
@@ -358,6 +457,7 @@ Commands:
   plan [names...]    counters the matchup data picks, next to the current ones
   plan --json [...]  reasons template for apply, current reasons filled in
   facts <names...>   ability text from the cached game constants
+  lint               flag ability names in reasons that belong to neither hero
   apply <file.json>  write the picked counters with reasons from the file into data.js
   help               show this text
 
@@ -393,6 +493,7 @@ function main(argv) {
     return plan(data, rest.filter((a) => a !== "--json"), asJson);
   }
   if (cmd === "facts") return facts(data, rest);
+  if (cmd === "lint") return lint(data);
   if (cmd === "apply") return apply(data, rest[0]);
 
   console.error(red(`Unknown command "${cmd}"\n`));

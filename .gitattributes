@@ -1,0 +1,9 @@
+# Keep line endings consistent across machines
+* text=auto eol=lf
+
+*.png binary
+*.webp binary
+
+# One line per hero and per counter, but the file is generated: keep diffs quiet
+js/data.js linguist-generated=true
+js/matchups.js linguist-generated=true

@@ -1,0 +1,30 @@
+name: New patch or new hero
+description: The game changed and the data needs a refresh
+title: "[patch] "
+labels: ["data", "patch"]
+body:
+  - type: input
+    id: patch
+    attributes:
+      label: Patch
+      placeholder: "7.42"
+    validations:
+      required: true
+  - type: checkboxes
+    id: what
+    attributes:
+      label: What changed
+      options:
+        - label: A new hero was added
+        - label: A hero was reworked, so its reasons are wrong now
+        - label: An item was added, changed or removed
+        - label: Nothing specific, the numbers are just old
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which heroes or items, and what changed about them.
+  - type: markdown
+    attributes:
+      value: |
+        Refreshing the numbers takes one command and a free STRATZ token, and a pull request doing it is very welcome. See [CONTRIBUTING.md](../../blob/master/CONTRIBUTING.md).

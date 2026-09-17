@@ -7,6 +7,7 @@ An interactive map of Dota 2 counter-picks. Click a hero to see who beats it, wh
   <img src="https://img.shields.io/badge/patch-7.41-d8552f?style=flat-square" alt="Patch 7.41">
   <img src="https://img.shields.io/badge/counters-732-5aa9e6?style=flat-square" alt="732 counters">
   <img src="https://img.shields.io/badge/build-none-2b2f38?style=flat-square" alt="No build step">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2b2f38?style=flat-square" alt="MIT license"></a>
 </p>
 
 ## Open it
@@ -94,6 +95,7 @@ node tools/counterweb.mjs hero "storm"    # counters with numbers and reasons
 node tools/counterweb.mjs plan pudge      # what the data picks vs what data.js has
 node tools/counterweb.mjs facts pudge     # ability text from the game files
 node tools/counterweb.mjs apply file.json # write picked counters with your reasons
+node tools/counterweb.mjs lint            # ability names in reasons that fit neither hero
 ```
 
 `check` catches the mistakes that break the page or leave a panel half empty:
@@ -104,6 +106,9 @@ node tools/counterweb.mjs apply file.json # write picked counters with your reas
 - missing portraits, broken base64, and portraits or icons that are the wrong size
 - `<` or `>` in text fields
 - `IMAGES` keys that don't match a hero
+- item names that don't exist in the game (short names like `BKB` and `Orchid` are allowed)
+
+`lint` is the other half: it reads every reason and flags any ability name that belongs to neither hero in the matchup, which is how a wrong reason usually looks.
 
 ### Refreshing the numbers
 
@@ -112,6 +117,8 @@ cp .env.example .env   # add your free token from https://stratz.com/api
 node tools/fetch-matchups.mjs
 node tools/counterweb.mjs check --strict
 ```
+
+GitHub Actions can do this for you every Monday: add a repository secret named `STRATZ_TOKEN` under Settings, Secrets and variables, Actions. The [refresh workflow](.github/workflows/refresh-data.yml) then opens a pull request with the new numbers instead of pushing to `master`, because changed picks need new reasons written by hand.
 
 The fetch takes about 3 minutes and stays under STRATZ's rate limit. It writes `js/matchups.js` and caches the raw data and ability text in `data-cache/`, which git ignores. If the picks changed, `check` lists what needs a new reason, `plan --json` gives you a template, and `apply` writes it in.
 
@@ -153,7 +160,10 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 ├── tools/
 │   ├── counterweb.mjs       data CLI: check, stats, hero, plan, facts, apply
 │   └── fetch-matchups.mjs   pulls fresh matchup numbers (needs STRATZ_TOKEN)
-├── .github/workflows/       CI: data check on push and PR
+├── .github/
+│   ├── workflows/           CI: data check on push and PR, weekly data refresh
+│   ├── ISSUE_TEMPLATE/      issue forms
+│   └── PULL_REQUEST_TEMPLATE.md
 ├── package.json             npm scripts for the CLI, no dependencies
 └── docs/
     ├── ADDING_HEROES.md     data format and how to add heroes
@@ -175,6 +185,7 @@ Then open `http://localhost:8000`. Opening `index.html` through `file://` also w
 | `npm run check` | `counterweb check --strict` |
 | `npm run stats` | `counterweb stats` |
 | `npm run hero -- pudge` | `counterweb hero pudge` |
+| `npm run lint` | `counterweb lint` |
 | `npm run fetch` | `fetch-matchups.mjs` |
 | `npm run serve` | static server on port 8000 through `npx http-server` |
 
@@ -187,6 +198,19 @@ See [docs/ADDING_HEROES.md](docs/ADDING_HEROES.md), then run `npm run check`.
 ## Data accuracy
 
 Counters come from Divine and Immortal games on patch **7.41**, fetched September 16, 2026. The numbers go stale as the meta shifts, so they get refreshed with `fetch-matchups.mjs`. Silver bullet items are still hand-picked. If a reason or item looks wrong, open an issue or send a PR.
+
+## Contributing
+
+Spotted a counter that's wrong, or a reason that misreads an ability? That's the most useful thing you can report, and you don't need to write code for it.
+
+- [Open an issue](../../issues/new/choose): a wrong counter, a site bug, or a new patch
+- [Discussions](../../discussions): argue about a matchup, or suggest where the thresholds should sit
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to run it, what makes a good reason, how to refresh the data
+- [Code of conduct](CODE_OF_CONDUCT.md) and [security policy](SECURITY.md)
+
+## License
+
+[MIT](LICENSE). Dota 2 is a trademark of Valve Corporation, and this project is not affiliated with Valve.
 
 ## Credits
 
