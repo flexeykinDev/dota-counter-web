@@ -118,7 +118,7 @@ node tools/fetch-matchups.mjs
 node tools/counterweb.mjs check --strict
 ```
 
-GitHub Actions can do this for you every Monday: add a repository secret named `STRATZ_TOKEN` under Settings, Secrets and variables, Actions. The [refresh workflow](.github/workflows/refresh-data.yml) then opens a pull request with the new numbers instead of pushing to `master`, because changed picks need new reasons written by hand.
+Run it on the machine the token belongs to. A STRATZ token only works from the IP address that first used it, so the same token fails from a GitHub runner, a VPN or a second computer with `You cannot use different IP Addresses when using the API`. That rules out a scheduled cloud refresh unless you point the [refresh workflow](.github/workflows/refresh-data.yml) at a self-hosted runner, which is why it is manual-only.
 
 The fetch takes about 3 minutes and stays under STRATZ's rate limit. It writes `js/matchups.js` and caches the raw data and ability text in `data-cache/`, which git ignores. If the picks changed, `check` lists what needs a new reason, `plan --json` gives you a template, and `apply` writes it in.
 

@@ -1,14 +1,27 @@
 name: Refresh matchup data
 
 # Pulls fresh numbers from STRATZ and OpenDota and opens a pull request.
+#
+# Heads up: a STRATZ token only works from the IP address that first used it, so
+# this fails on a GitHub runner with "You cannot use different IP Addresses when
+# using the API" unless you supply a token that is bound to the runner, or run
+# the job on a self-hosted runner on the machine the token belongs to.
+#
+# The usual way to refresh is `npm run fetch` on your own machine, then commit
+# js/matchups.js. This workflow is here for a self-hosted runner, and it is
+# manual-only so a scheduled run can't fail every week.
+#
 # Needs a repository secret named STRATZ_TOKEN (free token from https://stratz.com/api).
 # Nothing is pushed to master: the pull request is there for you to read first,
 # because new picks usually need new reasons written by hand.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
   workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner to use. Change to your self-hosted label if your token is bound to that machine."
+        default: ubuntu-latest
+        required: true
 
 permissions:
   contents: write
@@ -16,7 +29,7 @@ permissions:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,7 +51,6 @@ jobs:
         run: node tools/fetch-matchups.mjs
 
       - name: Check the data
-        id: check
         run: |
           node tools/counterweb.mjs check > check.txt 2>&1 || true
           cat check.txt

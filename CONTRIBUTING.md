@@ -52,7 +52,7 @@ So a pull request that swaps one counter for another will not pass `check --stri
   npm run check
   ```
 
-  If the picks changed, `check` says which counters need a reason. `node tools/counterweb.mjs plan --json <hero>` gives you a template, and `apply` writes it back:
+  Your token only works from the IP that first used it, so run this on your own machine rather than in CI. If the picks changed, `check` says which counters need a reason. `node tools/counterweb.mjs plan --json <hero>` gives you a template, and `apply` writes it back:
 
   ```bash
   node tools/counterweb.mjs plan --json pudge > reasons.json

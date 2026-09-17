@@ -46,18 +46,21 @@ async function stratz(query, attempt = 1) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}`, "User-Agent": "STRATZ_API" },
     body: JSON.stringify({ query }),
   });
-  // 403 covers both a bad token and a spent rate limit, so back off a full minute
-  // before giving up on it.
-  if ((res.status === 429 || res.status === 403 || res.status >= 500) && attempt <= 4) {
-    const wait = res.status === 403 ? 60 : attempt * 5;
-    console.log(`  STRATZ ${res.status}, waiting ${wait}s before retry ${attempt}/4`);
-    await sleep(wait * 1000);
+  if ((res.status === 429 || res.status >= 500) && attempt <= 4) {
+    console.log(`  STRATZ ${res.status}, retrying in ${attempt * 5}s`);
+    await sleep(attempt * 5000);
     return stratz(query, attempt + 1);
   }
-  const body = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let body = {};
+  try { body = JSON.parse(text); } catch {}
   if (!res.ok || body.errors) {
-    const hint = res.status === 403 ? " (rate limit spent, or the token is wrong: https://stratz.com/api)" : "";
-    throw new Error(`STRATZ ${res.status}${hint}: ${JSON.stringify(body.errors || body).slice(0, 300)}`);
+    // STRATZ ties a token to the IP that first used it, so the same token fails
+    // from a CI runner, a VPN or another machine.
+    const hint = res.status === 403
+      ? ` (${text.trim() || "forbidden"}. A STRATZ token only works from one IP address, and the rate limit is 149 requests a minute)`
+      : "";
+    throw new Error(`STRATZ ${res.status}${hint}: ${JSON.stringify(body.errors || text).slice(0, 300)}`);
   }
   return body.data;
 }
