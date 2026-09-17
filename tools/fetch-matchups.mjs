@@ -19,7 +19,7 @@ const WEEKS = Number(opt("weeks", 8));
 const BRACKET = opt("bracket", "DIVINE_IMMORTAL");
 const TOP = Number(opt("top", 10));
 const MIN_GAMES = Number(opt("min-games", 200));
-const HEROES_PER_QUERY = 8;
+const HEROES_PER_QUERY = 16;
 const REQUEST_GAP_MS = 1100; // STRATZ allows ~149 requests a minute
 
 function loadToken() {
@@ -46,13 +46,19 @@ async function stratz(query, attempt = 1) {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}`, "User-Agent": "STRATZ_API" },
     body: JSON.stringify({ query }),
   });
-  if ((res.status === 429 || res.status >= 500) && attempt <= 4) {
-    console.log(`  STRATZ ${res.status}, retrying in ${attempt * 5}s`);
-    await sleep(attempt * 5000);
+  // 403 covers both a bad token and a spent rate limit, so back off a full minute
+  // before giving up on it.
+  if ((res.status === 429 || res.status === 403 || res.status >= 500) && attempt <= 4) {
+    const wait = res.status === 403 ? 60 : attempt * 5;
+    console.log(`  STRATZ ${res.status}, waiting ${wait}s before retry ${attempt}/4`);
+    await sleep(wait * 1000);
     return stratz(query, attempt + 1);
   }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.errors) throw new Error(`STRATZ ${res.status}: ${JSON.stringify(body.errors || body).slice(0, 300)}`);
+  if (!res.ok || body.errors) {
+    const hint = res.status === 403 ? " (rate limit spent, or the token is wrong: https://stratz.com/api)" : "";
+    throw new Error(`STRATZ ${res.status}${hint}: ${JSON.stringify(body.errors || body).slice(0, 300)}`);
+  }
   return body.data;
 }
 
